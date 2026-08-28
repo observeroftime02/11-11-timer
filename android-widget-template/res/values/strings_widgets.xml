@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_compact_name">Next 11:11 Compact (1 Row)</string>
+    <string name="widget_compact_desc">Sleek, low-profile bar showing the next city and countdown.</string>
+    <string name="widget_medium_name">Next 11:11 Dashboard (Medium Card)</string>
+    <string name="widget_medium_desc">Full-featured dashboard with simultaneous cities and time details.</string>
+    <string name="widget_square_name">Next 11:11 Dial (Square)</string>
+    <string name="widget_square_desc">Large bold 11:11 numerals with countdown and active cities.</string>
+</resources>

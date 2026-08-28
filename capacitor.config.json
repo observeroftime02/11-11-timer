@@ -1,0 +1,6 @@
+{
+  "appId": "com.nextcity.worldclock",
+  "appName": "Next 11:11",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}

@@ -1,0 +1,20 @@
+{
+  "name": "Next 11:11",
+  "short_name": "Next 11:11",
+  "description": "Real-time world tracker showing which city hits 11:11 next, with Android widgets, countdowns, and alerts.",
+  "start_url": "/",
+  "id": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0a0a0a",
+  "theme_color": "#f59e0b",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["utilities", "lifestyle"]
+}
