@@ -10,6 +10,7 @@ import { WorldDirectoryView } from './components/WorldDirectoryView';
 import { MakeAWishModal } from './components/MakeAWishModal';
 import { NotificationModal } from './components/NotificationModal';
 import { PrivacyPolicyModal } from './components/PrivacyPolicyModal';
+import { AndroidWidgetShowcase } from './components/AndroidWidgetShowcase';
 import { WORLD_CITIES } from './data/timezones';
 import {
   getNextTargetWorldwide,
@@ -69,18 +70,43 @@ export default function App() {
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const [isWishModalOpen, setIsWishModalOpen] = useState(false);
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+  const [isWidgetModalOpen, setIsWidgetModalOpen] = useState(false);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [wishCityContext, setWishCityContext] = useState<string | undefined>();
 
   // Track previous notified minute to avoid duplicate alerts within the same minute
   const lastNotifiedMinuteRef = useRef<string>('');
 
-  // Main real-time clock ticker (runs every 1000ms)
+  // Main real-time clock ticker with tab-visibility power-saving throttle
   useEffect(() => {
-    const timer = setInterval(() => {
+    let timer: NodeJS.Timeout;
+
+    const startTimer = () => {
+      // Clear any existing timer
+      if (timer) clearInterval(timer);
+      
+      // Update immediately
       setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
+
+      // If document is visible, run at 1s interval for smooth countdowns
+      // If hidden/backgrounded, throttle to 10s interval to eliminate CPU wakeups and save battery
+      const intervalMs = document.visibilityState === 'hidden' ? 10000 : 1000;
+      timer = setInterval(() => {
+        setCurrentTime(new Date());
+      }, intervalMs);
+    };
+
+    const handleVisibilityChange = () => {
+      startTimer();
+    };
+
+    startTimer();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      if (timer) clearInterval(timer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   const handleSelectMode = (newMode: TrackerMode) => {
@@ -114,6 +140,7 @@ export default function App() {
     const nowMs = currentTime.getTime();
     return wishes
       .filter((wish) => {
+        const wishMode: TrackerMode = wish.mode || '1111';
         // If wish has targetTimestamp, check if it's in the future or active now (within 60s past)
         if (wish.targetTimestamp) {
           return wish.targetTimestamp >= nowMs - 60000;
@@ -123,24 +150,25 @@ export default function App() {
           (c) => c.name.toLowerCase() === (wish.cityName || '').toLowerCase()
         );
         if (city) {
-          const nextEv = getNextTargetForCity(city, trackerMode, currentTime);
+          const nextEv = getNextTargetForCity(city, wishMode, currentTime);
           return nextEv.remainingMs >= -60000;
         }
         return true;
       })
       .map((wish) => {
+        const wishMode: TrackerMode = wish.mode || '1111';
         if (!wish.targetTimestamp) {
           const city = WORLD_CITIES.find(
             (c) => c.name.toLowerCase() === (wish.cityName || '').toLowerCase()
           );
           const targetMs = city
-            ? getNextTargetForCity(city, trackerMode, currentTime).targetDate.getTime()
-            : getNextTargetWorldwide(WORLD_CITIES, trackerMode, currentTime).primary.targetDate.getTime();
-          return { ...wish, targetTimestamp: targetMs };
+            ? getNextTargetForCity(city, wishMode, currentTime).targetDate.getTime()
+            : getNextTargetWorldwide(WORLD_CITIES, wishMode, currentTime).primary.targetDate.getTime();
+          return { ...wish, mode: wishMode, targetTimestamp: targetMs };
         }
-        return wish;
+        return { ...wish, mode: wishMode };
       });
-  }, [wishes, currentTime, trackerMode]);
+  }, [wishes, currentTime]);
 
   const handleAddWish = (newWish: UserWish) => {
     const updated = [newWish, ...wishes];
@@ -286,6 +314,7 @@ export default function App() {
         onSelectCity={(cityName) => {
           handleOpenWishModalForCity(cityName);
         }}
+        mode={trackerMode}
       />
     );
   }
@@ -321,7 +350,7 @@ export default function App() {
           activeNow={activeNow}
           userTimeZone={userTimeZone}
           onOpenWishModal={handleOpenWishModalForCity}
-          onOpenWidgetModal={() => {}}
+          onOpenWidgetModal={() => setIsWidgetModalOpen(true)}
           mode={trackerMode}
         />
 
@@ -342,6 +371,7 @@ export default function App() {
                 currentTime={currentTime}
                 onDeleteWish={handleDeleteWish}
                 onOpenWishModal={handleOpenWishModalForCity}
+                mode={trackerMode}
               />
             )}
           </div>
@@ -354,6 +384,7 @@ export default function App() {
               userTimeZone={userTimeZone}
               onOpenFullScreen={() => setCurrentView('map')}
               onSelectCity={(city) => handleOpenWishModalForCity(city.name)}
+              mode={trackerMode}
             />
           </div>
         </div>
@@ -419,6 +450,7 @@ export default function App() {
         wishes={wishes}
         onAddWish={handleAddWish}
         onDeleteWish={handleDeleteWish}
+        activeMode={trackerMode}
       />
 
       <NotificationModal
@@ -427,7 +459,19 @@ export default function App() {
         prefs={notificationPrefs}
         onUpdatePrefs={handleUpdateNotificationPrefs}
         currentNextCity={primary.city}
+        activeMode={trackerMode}
+        onOpenWidgets={() => setIsWidgetModalOpen(true)}
       />
+
+      {isWidgetModalOpen && (
+        <AndroidWidgetShowcase
+          nextEvent={primary}
+          upcomingList={groupedUpcoming.map((slot) => slot.cities[0])}
+          userTimeZone={userTimeZone}
+          onClose={() => setIsWidgetModalOpen(false)}
+          activeMode={trackerMode}
+        />
+      )}
 
       <PrivacyPolicyModal
         isOpen={isPrivacyModalOpen}

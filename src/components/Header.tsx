@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, Sparkles, Clock, Globe, Settings, Sliders } from 'lucide-react';
+import { Bell, Sparkles, Clock, Globe, Settings } from 'lucide-react';
 import { NotificationPreferences, TrackerMode } from '../types';
 
 interface HeaderProps {
@@ -77,11 +77,11 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Center: Mode Tabs Toggle (11:11 vs 4:20) */}
         {notificationPrefs.enable420 && (
-          <div className="flex items-center bg-neutral-900/90 p-1 rounded-2xl border border-neutral-800 shadow-inner">
+          <div className="flex items-center bg-neutral-900/90 p-0.5 sm:p-1 rounded-xl sm:rounded-2xl border border-neutral-800 shadow-inner shrink-0">
             <button
               id="tab-mode-1111"
               onClick={() => onSelectMode('1111')}
-              className={`flex items-center gap-1.5 px-3 py-1 sm:py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition-all cursor-pointer ${
                 !is420
                   ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-neutral-950 shadow-md shadow-amber-500/20'
                   : 'text-neutral-400 hover:text-neutral-200'
@@ -93,7 +93,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               id="tab-mode-420"
               onClick={() => onSelectMode('420')}
-              className={`flex items-center gap-1.5 px-3 py-1 sm:py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold transition-all cursor-pointer ${
                 is420
                   ? 'bg-gradient-to-r from-emerald-400 to-teal-500 text-neutral-950 shadow-md shadow-emerald-500/20'
                   : 'text-neutral-400 hover:text-neutral-200'
@@ -106,26 +106,26 @@ export const Header: React.FC<HeaderProps> = ({
         )}
 
         {/* Right: Quick Actions */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           {/* Show World Directory Button */}
           <button
             id="btn-header-show-world"
             onClick={onOpenWorldDirectory}
-            className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-semibold bg-neutral-900 hover:bg-neutral-850 text-neutral-200 border border-neutral-800 hover:border-neutral-700 transition-all cursor-pointer shadow-sm hover:text-white"
+            className="flex items-center justify-center gap-1 sm:gap-1.5 p-1.5 sm:px-3 sm:py-2 rounded-xl text-xs font-semibold bg-neutral-900 hover:bg-neutral-850 text-neutral-200 border border-neutral-800 hover:border-neutral-700 transition-all cursor-pointer shadow-sm hover:text-white"
             title="Open all cities directory with live clocks and time zones"
+            aria-label="Show world cities directory"
           >
             <Globe
-              className={`w-3.5 h-3.5 shrink-0 ${is420 ? 'text-emerald-400' : 'text-amber-400'}`}
+              className={`w-4 h-4 shrink-0 ${is420 ? 'text-emerald-400' : 'text-amber-400'}`}
             />
-            <span className="hidden sm:inline">Show World</span>
-            <span className="sm:hidden">World</span>
+            <span className="hidden md:inline">Show World</span>
           </button>
 
           {/* Action / Wish / Vibe Button */}
           <button
             id="btn-header-wish"
             onClick={onOpenWishModal}
-            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer ${
+            className={`flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer shrink-0 ${
               isWishActiveNow
                 ? is420
                   ? 'bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-400 text-neutral-950 animate-bounce shadow-emerald-400/30'
@@ -138,7 +138,7 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Sparkles className={`w-3.5 h-3.5 shrink-0 ${isWishActiveNow ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">{is420 ? '4:20 Vibe' : 'Make a Wish'}</span>
-            <span className="sm:hidden">{is420 ? '4:20' : 'Wish'}</span>
+            <span className="sm:hidden text-[11px]">{is420 ? '4:20' : 'Wish'}</span>
             {activeCount > 0 && (
               <span className="px-1.5 py-0.2 rounded-full bg-neutral-950 text-emerald-400 text-[10px] font-bold">
                 {activeCount}
@@ -150,7 +150,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             id="btn-header-notifications"
             onClick={onOpenNotifications}
-            className={`group relative flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer shrink-0 ${
+            className={`group relative flex items-center justify-center gap-1.5 p-1.5 sm:px-3 sm:py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer shrink-0 ${
               notificationPrefs.enabled
                 ? is420
                   ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border-emerald-500/40 shadow-sm'
@@ -161,7 +161,7 @@ export const Header: React.FC<HeaderProps> = ({
             aria-label="Settings and notifications"
           >
             <div className="relative flex items-center justify-center">
-              <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform duration-300 group-hover:rotate-45" />
+              <Settings className="w-4 h-4 transition-transform duration-300 group-hover:rotate-45" />
               {notificationPrefs.enabled && (
                 <span className="absolute -top-1 -right-1 flex h-2 w-2">
                   <span

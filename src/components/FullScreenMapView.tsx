@@ -15,17 +15,18 @@ import {
   Info,
   X,
 } from 'lucide-react';
-import { Next1111Event, CityTimeZone } from '../types';
+import { NextMomentEvent, CityTimeZone, TrackerMode } from '../types';
 import { WORLD_CITIES } from '../data/timezones';
-import { formatCurrentTzTime, getNext1111ForCity, formatCountdownHuman } from '../utils/timeEngine';
+import { formatCurrentTzTime, getNextTargetForCity, formatCountdownHuman } from '../utils/timeEngine';
 
 interface FullScreenMapViewProps {
-  nextEvent: Next1111Event;
+  nextEvent: NextMomentEvent;
   activeNow: CityTimeZone[];
-  userCityNext: Next1111Event;
+  userCityNext: NextMomentEvent;
   userTimeZone: string;
   onBack: () => void;
   onSelectCity: (cityName: string) => void;
+  mode?: TrackerMode;
 }
 
 const DARK_TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}';
@@ -38,7 +39,9 @@ export const FullScreenMapView: React.FC<FullScreenMapViewProps> = ({
   userTimeZone,
   onBack,
   onSelectCity,
+  mode = '1111',
 }) => {
+  const is420 = mode === '420';
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
 
@@ -57,7 +60,7 @@ export const FullScreenMapView: React.FC<FullScreenMapViewProps> = ({
         html: `
           <div class="relative flex items-center justify-center -translate-x-1/2 -translate-y-1/2 cursor-pointer">
             <span class="absolute w-9 h-9 rounded-full bg-emerald-400/40 animate-ping"></span>
-            <span class="w-6 h-6 rounded-full bg-emerald-400 border-2 border-neutral-950 shadow-xl flex items-center justify-center text-xs">✨</span>
+            <span class="w-6 h-6 rounded-full bg-emerald-400 border-2 border-neutral-950 shadow-xl flex items-center justify-center text-xs">${is420 ? '🌿' : '✨'}</span>
           </div>
         `,
         iconSize: [26, 26],
@@ -70,8 +73,8 @@ export const FullScreenMapView: React.FC<FullScreenMapViewProps> = ({
         className: 'leaflet-custom-marker',
         html: `
           <div class="relative flex items-center justify-center -translate-x-1/2 -translate-y-1/2 cursor-pointer">
-            <span class="absolute w-10 h-10 rounded-full bg-amber-400/40 animate-ping"></span>
-            <span class="w-7 h-7 rounded-full bg-amber-400 border-2 border-neutral-950 shadow-2xl flex items-center justify-center text-sm font-bold text-neutral-950">✨</span>
+            <span class="absolute w-10 h-10 rounded-full ${is420 ? 'bg-emerald-400/40' : 'bg-amber-400/40'} animate-ping"></span>
+            <span class="w-7 h-7 rounded-full ${is420 ? 'bg-emerald-400 text-neutral-950' : 'bg-amber-400 text-neutral-950'} border-2 border-neutral-950 shadow-2xl flex items-center justify-center text-sm font-bold">${is420 ? '🌿' : '✨'}</span>
           </div>
         `,
         iconSize: [30, 30],
@@ -109,7 +112,7 @@ export const FullScreenMapView: React.FC<FullScreenMapViewProps> = ({
       className: 'leaflet-custom-marker',
       html: `
         <div class="relative flex items-center justify-center -translate-x-1/2 -translate-y-1/2 group cursor-pointer p-1">
-          <span class="w-3 h-3 rounded-full bg-neutral-300/80 group-hover:bg-amber-300 border border-neutral-900 shadow-sm transition-transform group-hover:scale-150"></span>
+          <span class="w-3 h-3 rounded-full bg-neutral-300/80 group-hover:${is420 ? 'bg-emerald-300' : 'bg-amber-300'} border border-neutral-900 shadow-sm transition-transform group-hover:scale-150"></span>
         </div>
       `,
       iconSize: [16, 16],
@@ -191,7 +194,7 @@ export const FullScreenMapView: React.FC<FullScreenMapViewProps> = ({
       tzGroup.addLayer(labelMarker);
     }
 
-    // Active Golden 11:11 Wave
+    // Active Golden 11:11 or Emerald 4:20 Wave
     const targetLng = nextEvent.city.lng;
     const waveLine = L.polyline(
       [
@@ -199,7 +202,7 @@ export const FullScreenMapView: React.FC<FullScreenMapViewProps> = ({
         [85, targetLng],
       ],
       {
-        color: '#f59e0b',
+        color: is420 ? '#10b981' : '#f59e0b',
         weight: 3,
         dashArray: '6, 6',
         opacity: 0.95,
@@ -244,20 +247,20 @@ export const FullScreenMapView: React.FC<FullScreenMapViewProps> = ({
       map.remove();
       mapInstanceRef.current = null;
     };
-  }, []);
+  }, [is420]);
 
   // Update Time Zone visual highlighting
   useEffect(() => {
     tzPolygonsRef.current.forEach((polygon, offset) => {
       const isHighlighted = selectedTzOffset === offset;
       polygon.setStyle({
-        fillColor: isHighlighted ? '#f59e0b' : offset === 0 ? '#0284c7' : '#334155',
+        fillColor: isHighlighted ? (is420 ? '#10b981' : '#f59e0b') : offset === 0 ? '#0284c7' : '#334155',
         fillOpacity: isHighlighted ? 0.28 : 0.08,
-        color: isHighlighted ? '#f59e0b' : offset === 0 ? '#38bdf8' : '#475569',
+        color: isHighlighted ? (is420 ? '#10b981' : '#f59e0b') : offset === 0 ? '#38bdf8' : '#475569',
         weight: isHighlighted ? 2.5 : offset === 0 ? 1.5 : 0.75,
       });
     });
-  }, [selectedTzOffset]);
+  }, [selectedTzOffset, is420]);
 
   // Toggle Timezones Layer
   useEffect(() => {
@@ -296,7 +299,7 @@ export const FullScreenMapView: React.FC<FullScreenMapViewProps> = ({
       })
     : [];
 
-  const selectedEvent = selectedCity ? getNext1111ForCity(selectedCity, new Date(), userTimeZone) : null;
+  const selectedEvent = selectedCity ? getNextTargetForCity(selectedCity, (mode || '1111') as TrackerMode, new Date(), userTimeZone) : null;
   const selectedLocalTime = selectedCity ? formatCurrentTzTime(new Date(), selectedCity.timeZone) : null;
 
   return (
@@ -309,27 +312,31 @@ export const FullScreenMapView: React.FC<FullScreenMapViewProps> = ({
             onClick={onBack}
             className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-semibold text-xs transition-colors cursor-pointer border border-neutral-700 active:scale-95 shadow-md"
           >
-            <ArrowLeft className="w-4 h-4 text-amber-400" />
+            <ArrowLeft className={`w-4 h-4 ${is420 ? 'text-emerald-400' : 'text-amber-400'}`} />
             <span>← Back to Dashboard</span>
           </button>
 
           <div>
             <h1 className="font-display font-bold text-sm sm:text-base text-white flex items-center gap-2">
-              <span>Worldwide 11:11 Map</span>
+              <span>Worldwide {is420 ? '4:20' : '11:11'} Map</span>
             </h1>
           </div>
         </div>
 
         {/* Action Controls Bar */}
         <div className="flex items-center gap-2">
-          {/* Fly to Next 11:11 City */}
+          {/* Fly to Next City */}
           <button
             onClick={() => {
               setSelectedCity(nextEvent.city);
               flyToCoords(nextEvent.city.lat, nextEvent.city.lng, 4.5);
             }}
-            className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
-            title="Jump to Next 11:11 City"
+            className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+              is420
+                ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border-emerald-500/40'
+                : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border-amber-500/40'
+            }`}
+            title={`Jump to Next ${is420 ? '4:20' : '11:11'} City`}
           >
             <Sparkles className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Next:</span>
@@ -396,17 +403,21 @@ export const FullScreenMapView: React.FC<FullScreenMapViewProps> = ({
 
         {/* Floating Timezone Highlight Banner */}
         {selectedTzOffset !== null && (
-          <div className="absolute top-4 left-4 z-[1000] bg-neutral-900/95 border border-amber-500/50 text-neutral-200 text-xs px-3.5 py-2 rounded-2xl shadow-2xl backdrop-blur-md flex items-center gap-3">
+          <div
+            className={`absolute top-4 left-4 z-[1000] bg-neutral-900/95 border text-neutral-200 text-xs px-3.5 py-2 rounded-2xl shadow-2xl backdrop-blur-md flex items-center gap-3 ${
+              is420 ? 'border-emerald-500/50' : 'border-amber-500/50'
+            }`}
+          >
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
-              <span className="font-bold text-amber-300">
+              <span className={`w-2.5 h-2.5 rounded-full animate-pulse ${is420 ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+              <span className={`font-bold ${is420 ? 'text-emerald-300' : 'text-amber-300'}`}>
                 Time Zone UTC{selectedTzOffset >= 0 ? `+${selectedTzOffset}` : selectedTzOffset}
               </span>
             </div>
             <span className="text-neutral-400">({citiesInSelectedTz.length} cities mapped)</span>
             <button
               onClick={() => setSelectedTzOffset(null)}
-              className="px-2 py-0.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-[11px] font-semibold"
+              className="px-2 py-0.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-[11px] font-semibold cursor-pointer"
             >
               Clear
             </button>
@@ -414,7 +425,7 @@ export const FullScreenMapView: React.FC<FullScreenMapViewProps> = ({
         )}
       </main>
 
-      {/* Bottom Interactive City & Wish Card */}
+      {/* Bottom Interactive City & Wish/Vibe Card */}
       <footer className="p-3 sm:p-4 bg-neutral-900 border-t border-neutral-800 z-20">
         {selectedCity && selectedEvent && selectedLocalTime ? (
           <div className="max-w-4xl mx-auto flex items-center justify-between gap-3 flex-wrap">
@@ -427,14 +438,25 @@ export const FullScreenMapView: React.FC<FullScreenMapViewProps> = ({
                     {selectedCity.baseOffsetUtc}
                   </span>
                   {selectedCity.id === nextEvent.city.id && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">
+                    <span
+                      className={`text-[10px] px-2 py-0.5 rounded-full border font-bold ${
+                        is420
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                          : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                      }`}
+                    >
                       UP NEXT
                     </span>
                   )}
                 </div>
                 <div className="text-xs text-neutral-400 flex items-center gap-3 mt-0.5 flex-wrap">
                   <span>Current: <strong className="text-white font-mono">{selectedLocalTime}</strong></span>
-                  <span>Next 11:11: <strong className="text-amber-400 font-mono">in {formatCountdownHuman(selectedEvent.remainingMs)}</strong></span>
+                  <span>
+                    Next {is420 ? '4:20' : '11:11'}:{' '}
+                    <strong className={`font-mono ${is420 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                      in {formatCountdownHuman(selectedEvent.remainingMs)}
+                    </strong>
+                  </span>
                   <span className="hidden sm:inline italic text-neutral-500">📍 {selectedCity.landmark}</span>
                 </div>
               </div>
@@ -447,18 +469,22 @@ export const FullScreenMapView: React.FC<FullScreenMapViewProps> = ({
                   onSelectCity(selectedCity.name);
                   onBack();
                 }}
-                className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer active:scale-95"
+                className={`px-4 py-2 rounded-xl text-neutral-950 text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+                  is420
+                    ? 'bg-emerald-400 hover:bg-emerald-300 shadow-emerald-500/20'
+                    : 'bg-amber-400 hover:bg-amber-300 shadow-amber-500/20'
+                }`}
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Wish for {selectedCity.name}</span>
+                <span>{is420 ? `Vibe for ${selectedCity.name}` : `Wish for ${selectedCity.name}`}</span>
               </button>
             </div>
           </div>
         ) : (
           <div className="max-w-4xl mx-auto flex items-center justify-between text-xs text-neutral-400">
             <div className="flex items-center gap-2">
-              <Info className="w-4 h-4 text-amber-400" />
-              <span>Tap any city or time zone on the map to inspect live time and make a wish.</span>
+              <Info className={`w-4 h-4 ${is420 ? 'text-emerald-400' : 'text-amber-400'}`} />
+              <span>Tap any city or time zone on the map to inspect live time and {is420 ? 'set a 4:20 vibe' : 'make a wish'}.</span>
             </div>
           </div>
         )}

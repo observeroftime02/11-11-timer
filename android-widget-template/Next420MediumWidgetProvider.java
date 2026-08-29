@@ -7,7 +7,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.widget.RemoteViews;
 
-public class Next1111SquareWidgetProvider extends AppWidgetProvider {
+public class Next420MediumWidgetProvider extends AppWidgetProvider {
 
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
@@ -21,29 +21,22 @@ public class Next1111SquareWidgetProvider extends AppWidgetProvider {
         Next1111WidgetHelper.scheduleWidgetUpdates(context);
     }
 
-    @Override
-    public void onDisabled(Context context) {
-        super.onDisabled(context);
-        if (!Next1111WidgetHelper.hasAnyActiveWidgets(context)) {
-            Next1111WidgetHelper.cancelWidgetUpdates(context);
-        }
-    }
-
     public static void updateWidgets(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
-        Next1111WidgetHelper.WidgetState state = Next1111WidgetHelper.calculateNext1111();
+        Next1111WidgetHelper.WidgetState state = Next1111WidgetHelper.calculateNext420();
 
         for (int appWidgetId : appWidgetIds) {
-            RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_square_dial);
+            RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_medium_420);
 
-            views.setTextViewText(R.id.square_widget_cities, state.cityNames);
-            views.setTextViewText(R.id.square_widget_sub, state.periodFormatted + " • " + state.gmtOffset);
-            views.setTextViewText(R.id.square_widget_countdown, state.shortCountdown);
+            views.setTextViewText(R.id.medium_420_widget_cities, state.cityNames);
+            views.setTextViewText(R.id.medium_420_widget_subinfo, state.periodFormatted + " • " + state.gmtOffset);
+            views.setTextViewText(R.id.medium_420_widget_countdown_badge, state.shortCountdown);
+            views.setTextViewText(R.id.medium_420_widget_bottom_timer, state.detailedCountdown);
 
             Intent intent = new Intent(context, MainActivity.class);
             PendingIntent pendingIntent = PendingIntent.getActivity(
-                    context, 111103, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+                    context, 420002, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
             );
-            views.setOnClickPendingIntent(R.id.widget_square_root, pendingIntent);
+            views.setOnClickPendingIntent(R.id.widget_medium_420_root, pendingIntent);
 
             appWidgetManager.updateAppWidget(appWidgetId, views);
         }

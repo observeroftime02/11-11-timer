@@ -42,27 +42,30 @@ export function saveNotificationPrefs(prefs: NotificationPreferences): void {
   }
 }
 
-export const NOTIFICATION_CHANNEL_ID = 'next1111_harmonic_chime';
+export const NOTIFICATION_CHANNEL_1111_ID = 'next1111_harmonic_chime';
+export const NOTIFICATION_CHANNEL_420_ID = 'next420_chill_chime';
+export const NOTIFICATION_CHANNEL_ID = NOTIFICATION_CHANNEL_1111_ID; // alias for backwards compatibility
 export const NOTIFICATION_SOUND = 'chime.wav';
+export const NOTIFICATION_SOUND_420 = 'chime_420.wav';
 
 /**
  * Play a peaceful crystal chime or mellow zen chime depending on mode
  */
 export function playChimeSound(mode: TrackerMode = '1111'): void {
-  try {
-    if (mode === '420') {
-      synthesizeChillTone();
-      return;
-    }
+  const audioFile = mode === '420' ? '/chime-420.wav' : '/chime.wav';
 
-    // Try HTML5 Audio element first for 11:11 crystal chime
+  try {
     if (typeof Audio !== 'undefined') {
-      const audio = new Audio('/chime.wav');
+      const audio = new Audio(audioFile);
       audio.volume = 0.85;
       const playPromise = audio.play();
       if (playPromise) {
         playPromise.catch(() => {
-          synthesizeChimeWebAudio();
+          if (mode === '420') {
+            synthesizeChillTone();
+          } else {
+            synthesizeChimeWebAudio();
+          }
         });
         return;
       }
@@ -199,16 +202,30 @@ export async function requestNotificationPermission(): Promise<boolean> {
       const req = await LocalNotifications.requestPermissions();
       if (req.display === 'granted') {
         try {
+          // Channel 1: 11:11 Solfeggio Crystal Chime
           await LocalNotifications.createChannel({
-            id: NOTIFICATION_CHANNEL_ID,
-            name: '11:11 & 4:20 Worldwide Alerts',
-            description: 'Notifies when 11:11 or 4:20 strikes with a peaceful harmonic chime',
-            importance: 5, // High priority (pops over screen)
+            id: NOTIFICATION_CHANNEL_1111_ID,
+            name: '11:11 Worldwide Crystal Chimes',
+            description: 'Notifies when 11:11 strikes worldwide with a 528Hz peaceful crystal chime',
+            importance: 5, // High priority (heads-up notification)
             visibility: 1, // Public on lockscreen
             sound: NOTIFICATION_SOUND,
             vibration: true,
             lights: true,
             lightColor: '#F59E0B',
+          });
+
+          // Channel 2: 4:20 Mellow Zen Chill Chime
+          await LocalNotifications.createChannel({
+            id: NOTIFICATION_CHANNEL_420_ID,
+            name: '4:20 Worldwide Chill Chimes',
+            description: 'Notifies when 4:20 strikes worldwide with a 432Hz mellow resonant chime',
+            importance: 5, // High priority
+            visibility: 1, // Public on lockscreen
+            sound: NOTIFICATION_SOUND_420,
+            vibration: true,
+            lights: true,
+            lightColor: '#10B981',
           });
         } catch {
           // ignore channel error
@@ -458,18 +475,21 @@ export async function syncScheduled1111Notifications(
       );
 
       const notifId = (counter++ % 2000000000) + 1000;
+      const isSlot420 = slotData.mode === '420';
+      const slotChannelId = isSlot420 ? NOTIFICATION_CHANNEL_420_ID : NOTIFICATION_CHANNEL_1111_ID;
+      const slotSound = isSlot420 ? NOTIFICATION_SOUND_420 : NOTIFICATION_SOUND;
 
       notificationList.push({
         id: notifId,
         title,
         body,
-        channelId: NOTIFICATION_CHANNEL_ID,
+        channelId: slotChannelId,
         schedule: {
           at: new Date(triggerBucketMs),
           allowWhileIdle: true,
         },
         smallIcon: 'ic_launcher_foreground',
-        sound: NOTIFICATION_SOUND,
+        sound: slotSound,
         extra: {
           cityIds: slotData.cities.map((c) => c.id),
           count: slotData.cities.length,
@@ -506,6 +526,10 @@ export async function send1111Notification(
 
   const { isNative, LocalNotifications } = await getCapacitorPlugins();
 
+  const isMode420 = mode === '420';
+  const targetChannelId = isMode420 ? NOTIFICATION_CHANNEL_420_ID : NOTIFICATION_CHANNEL_1111_ID;
+  const targetSound = isMode420 ? NOTIFICATION_SOUND_420 : NOTIFICATION_SOUND;
+
   // 1. Native Android Notification
   if (isNative && LocalNotifications) {
     try {
@@ -515,9 +539,9 @@ export async function send1111Notification(
             title,
             body,
             id: Math.floor(Math.random() * 1000000) + 1,
-            channelId: NOTIFICATION_CHANNEL_ID,
+            channelId: targetChannelId,
             schedule: { at: new Date(Date.now() + 100), allowWhileIdle: true },
-            sound: NOTIFICATION_SOUND,
+            sound: targetSound,
             smallIcon: 'ic_launcher_foreground',
             actionTypeId: '',
             extra: {

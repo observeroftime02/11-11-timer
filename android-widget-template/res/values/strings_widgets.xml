@@ -1,9 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- 11:11 Widgets -->
     <string name="widget_compact_name">Next 11:11 Compact (1 Row)</string>
-    <string name="widget_compact_desc">Sleek, low-profile bar showing the next city and countdown.</string>
+    <string name="widget_compact_desc">Sleek, low-profile gold bar showing the next 11:11 city and countdown.</string>
     <string name="widget_medium_name">Next 11:11 Dashboard (Medium Card)</string>
-    <string name="widget_medium_desc">Full-featured dashboard with simultaneous cities and time details.</string>
+    <string name="widget_medium_desc">Full-featured 11:11 gold dashboard with simultaneous cities and time details.</string>
     <string name="widget_square_name">Next 11:11 Dial (Square)</string>
     <string name="widget_square_desc">Large bold 11:11 numerals with countdown and active cities.</string>
+
+    <!-- 4:20 Widgets -->
+    <string name="widget_compact_420_name">Next 4:20 Compact (1 Row)</string>
+    <string name="widget_compact_420_desc">Sleek, low-profile emerald bar showing the next 4:20 city and countdown.</string>
+    <string name="widget_medium_420_name">Next 4:20 Dashboard (Medium Card)</string>
+    <string name="widget_medium_420_desc">Full-featured 4:20 emerald dashboard with simultaneous cities and time details.</string>
+    <string name="widget_square_420_name">Next 4:20 Dial (Square)</string>
+    <string name="widget_square_420_desc">Large bold 4:20 numerals with countdown and active cities.</string>
 </resources>

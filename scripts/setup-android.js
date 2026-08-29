@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
-console.log('🚀 Setting up Next 11:11 Native Android App Icons & Widgets...');
+console.log('🚀 Setting up Next 11:11 & Next 4:20 Native Android App Icons & Widgets...');
 
 const androidDir = path.join(rootDir, 'android');
 if (!fs.existsSync(androidDir)) {
@@ -103,16 +103,20 @@ if (fs.existsSync(path.join(drawableV24Dir, 'ic_launcher_foreground.xml'))) {
 fs.writeFileSync(path.join(drawableV24Dir, 'ic_launcher_foreground.png'), highResFgPng);
 console.log(' ✅ Replaced default Capacitor blue cross icon with gold 11:11 icon');
 
-// 3. COPY JAVA WIDGET PROVIDERS
+// 3. COPY JAVA WIDGET PROVIDERS & HELPERS
 const targetJavaDir = path.join(androidDir, 'app', 'src', 'main', 'java', 'com', 'nextcity', 'worldclock');
 fs.mkdirSync(targetJavaDir, { recursive: true });
 
 const templateDir = path.join(rootDir, 'android-widget-template');
 const javaFiles = [
   'Next1111WidgetHelper.java',
+  'Next1111WidgetReceiver.java',
   'Next1111CompactWidgetProvider.java',
   'Next1111MediumWidgetProvider.java',
   'Next1111SquareWidgetProvider.java',
+  'Next420CompactWidgetProvider.java',
+  'Next420MediumWidgetProvider.java',
+  'Next420SquareWidgetProvider.java',
   'Next1111WidgetProvider.java',
 ];
 
@@ -144,23 +148,28 @@ function copyDirRecursive(srcDir, destDir) {
 const templateResDir = path.join(templateDir, 'res');
 copyDirRecursive(templateResDir, mainResDir);
 
-// 4b. ENSURE NOTIFICATION SOUND (chime.wav) IS IN res/raw/
+// 4b. ENSURE NOTIFICATION SOUNDS (chime.wav & chime_420.wav) ARE IN res/raw/
 const rawDir = path.join(mainResDir, 'raw');
 fs.mkdirSync(rawDir, { recursive: true });
 const chimePublicPath = path.join(rootDir, 'public', 'chime.wav');
 if (fs.existsSync(chimePublicPath)) {
   fs.copyFileSync(chimePublicPath, path.join(rawDir, 'chime.wav'));
-  console.log(' ✅ Placed custom 11:11 crystal harmonic chime into res/raw/chime.wav');
+  console.log(' ✅ Placed 11:11 crystal harmonic chime into res/raw/chime.wav');
+}
+const chime420PublicPath = path.join(rootDir, 'public', 'chime-420.wav');
+if (fs.existsSync(chime420PublicPath)) {
+  fs.copyFileSync(chime420PublicPath, path.join(rawDir, 'chime_420.wav'));
+  console.log(' ✅ Placed 4:20 mellow chill tone into res/raw/chime_420.wav');
 }
 
-// 5. UPDATE ANDROIDMANIFEST.XML WITH NOTIFICATION PERMISSIONS & WIDGET RECEIVERS
+// 5. UPDATE ANDROIDMANIFEST.XML WITH NOTIFICATION PERMISSIONS & ALL 6 WIDGET RECEIVERS
 const manifestPath = path.join(androidDir, 'app', 'src', 'main', 'AndroidManifest.xml');
 if (fs.existsSync(manifestPath)) {
   let manifest = fs.readFileSync(manifestPath, 'utf8');
 
-  // Add Notification permissions (Android 13+ & Alarm scheduling)
+  // Add Notification permissions (Android 13+ & Exact Alarm scheduling)
   const notificationPermissions = `
-    <!-- 11:11 Push & Local Notification Permissions -->
+    <!-- 11:11 & 4:20 Push & Local Notification Permissions -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -174,7 +183,7 @@ if (fs.existsSync(manifestPath)) {
   }
 
   const receiversXml = `
-        <!-- Next 11:11 Native Home Screen Widgets -->
+        <!-- Next 11:11 & Next 4:20 Home Screen Widgets (Minute-by-minute Auto Updating) -->
         <receiver
             android:name=".Next1111CompactWidgetProvider"
             android:label="@string/widget_compact_name"
@@ -209,14 +218,71 @@ if (fs.existsSync(manifestPath)) {
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_square_info" />
+        </receiver>
+
+        <!-- Next 4:20 Native Home Screen Widgets -->
+        <receiver
+            android:name=".Next420CompactWidgetProvider"
+            android:label="@string/widget_compact_420_name"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_compact_420_info" />
+        </receiver>
+
+        <receiver
+            android:name=".Next420MediumWidgetProvider"
+            android:label="@string/widget_medium_420_name"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_medium_420_info" />
+        </receiver>
+
+        <receiver
+            android:name=".Next420SquareWidgetProvider"
+            android:label="@string/widget_square_420_name"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_square_420_info" />
+        </receiver>
+
+        <!-- Minute-by-minute Alarm & System Clock Broadcast Receiver -->
+        <receiver
+            android:name=".Next1111WidgetReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.nextcity.worldclock.ACTION_WIDGET_UPDATE" />
+                <action android:name="android.intent.action.TIME_TICK" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
         </receiver>`;
 
-  if (!manifest.includes('Next1111CompactWidgetProvider')) {
+  // Clean any older receiver block before replacing
+  if (manifest.includes('Next1111CompactWidgetProvider')) {
+    // replace everything from first receiver to </application>
+    const idx = manifest.indexOf('<receiver');
+    if (idx !== -1) {
+      manifest = manifest.substring(0, idx) + receiversXml + '\n    </application>';
+    }
+  } else {
     manifest = manifest.replace('</application>', `${receiversXml}\n    </application>`);
-    console.log(' ✅ Injected 3 widget receivers into AndroidManifest.xml!');
   }
 
   fs.writeFileSync(manifestPath, manifest, 'utf8');
+  console.log(' ✅ Injected all 6 widget providers & minute broadcast receiver into AndroidManifest.xml!');
 }
 
-console.log('🎉 Android setup complete: Custom 11:11 Golden Adaptive Icon + 3 Widgets ready!');
+console.log('🎉 Android setup complete: Custom 11:11 & 4:20 Golden/Emerald Icons + 6 Widgets ready!');

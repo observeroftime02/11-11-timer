@@ -1,8 +1,8 @@
 import React from 'react';
-import { Sparkles, Volume2 } from 'lucide-react';
+import { Sparkles, Volume2, Smartphone } from 'lucide-react';
 import { GroupedMomentSlot, CityTimeZone, TrackerMode } from '../types';
 import { formatCountdownHuman } from '../utils/timeEngine';
-import { playChimeSound, synthesizeChillTone } from '../utils/notifications';
+import { playChimeSound } from '../utils/notifications';
 
 interface Next1111HeroProps {
   slot: GroupedMomentSlot;
@@ -18,6 +18,7 @@ export const Next1111Hero: React.FC<Next1111HeroProps> = ({
   activeNow,
   userTimeZone,
   onOpenWishModal,
+  onOpenWidgetModal,
   mode = '1111',
 }) => {
   const is420 = mode === '420';
@@ -25,11 +26,7 @@ export const Next1111Hero: React.FC<Next1111HeroProps> = ({
   const countdownText = formatCountdownHuman(slot.remainingMs);
 
   const handlePlaySound = () => {
-    if (is420) {
-      synthesizeChillTone();
-    } else {
-      playChimeSound();
-    }
+    playChimeSound(is420 ? '420' : '1111');
   };
 
   return (
@@ -174,8 +171,20 @@ export const Next1111Hero: React.FC<Next1111HeroProps> = ({
             className="px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-750 text-neutral-200 hover:text-white text-xs sm:text-sm font-medium border border-neutral-700 flex items-center gap-2 transition-colors cursor-pointer"
           >
             <Volume2 className={`w-4 h-4 ${is420 ? 'text-emerald-400' : 'text-amber-400'}`} />
-            <span>{is420 ? 'Play Relax Tone' : 'Play Crystal Chime'}</span>
+            <span>{is420 ? 'Play 4:20 Tone' : 'Play Crystal Chime'}</span>
           </button>
+
+          {onOpenWidgetModal && (
+            <button
+              id="btn-hero-widgets"
+              onClick={onOpenWidgetModal}
+              className="px-4 py-2.5 rounded-xl bg-neutral-900/90 hover:bg-neutral-800 text-neutral-300 hover:text-white text-xs sm:text-sm font-medium border border-neutral-800 hover:border-neutral-700 flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+              title="Preview Android Home Screen Widgets"
+            >
+              <Smartphone className={`w-4 h-4 ${is420 ? 'text-emerald-400' : 'text-amber-400'}`} />
+              <span>Android Widgets</span>
+            </button>
+          )}
         </div>
       </div>
     </section>
