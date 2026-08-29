@@ -9,7 +9,7 @@ This repository contains automated GitHub Actions workflows to build, verify, an
 ### 1. 📱 Build Android Debug APK (`.github/workflows/android-build.yml`)
 - **Trigger**: Every push or pull request to `main` / `master`, or manually via GitHub's "Run workflow" button.
 - **What it does**:
-  1. Checks out code and sets up Node.js 20 & Java JDK 17.
+  1. Checks out code and sets up Node.js 22 & Java JDK 21.
   2. Runs TypeScript checks (`npm run lint`) and Vite production build (`npm run build`).
   3. Initializes Capacitor Android platform and runs `scripts/setup-android.js` to dynamically inject all 6 native Android widgets, adaptive high-res icons, and chime audio.
   4. Compiles the native Android Debug APK using Gradle.
