@@ -9,6 +9,7 @@ import { WorldTimeline } from './components/WorldTimeline';
 import { WorldDirectoryView } from './components/WorldDirectoryView';
 import { MakeAWishModal } from './components/MakeAWishModal';
 import { NotificationModal } from './components/NotificationModal';
+import { PrivacyPolicyModal } from './components/PrivacyPolicyModal';
 import { WORLD_CITIES } from './data/timezones';
 import { getNext1111Worldwide, formatCurrentTzTime, formatCountdownHuman, getNext1111ForCity } from './utils/timeEngine';
 import {
@@ -52,6 +53,7 @@ export default function App() {
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const [isWishModalOpen, setIsWishModalOpen] = useState(false);
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [wishCityContext, setWishCityContext] = useState<string | undefined>();
 
   // Track previous notified minute to avoid duplicate alerts within the same minute
@@ -325,8 +327,16 @@ export default function App() {
             </span>
           </div>
 
-          <div className="text-[11px] text-neutral-500">
-            Next 11:11 World Clock • Real-time IANA synchronization
+          <div className="flex items-center gap-3 text-[11px] text-neutral-500">
+            <span>Next 11:11 World Clock • Real-time IANA synchronization</span>
+            <span>•</span>
+            <button
+              id="btn-footer-privacy"
+              onClick={() => setIsPrivacyModalOpen(true)}
+              className="text-neutral-400 hover:text-amber-300 underline underline-offset-2 transition-colors cursor-pointer"
+            >
+              Privacy Policy
+            </button>
           </div>
         </div>
       </footer>
@@ -347,6 +357,11 @@ export default function App() {
         prefs={notificationPrefs}
         onUpdatePrefs={handleUpdateNotificationPrefs}
         currentNextCity={primary.city}
+      />
+
+      <PrivacyPolicyModal
+        isOpen={isPrivacyModalOpen}
+        onClose={() => setIsPrivacyModalOpen(false)}
       />
     </div>
   );
