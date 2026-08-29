@@ -34,6 +34,32 @@ import {
   getRandomPrompt,
 } from '../data/mindfulnessPrompts';
 
+const JOURNAL_PLACEHOLDERS = [
+  "Let your thoughts flow freely without rush or judgment. Write your affirmations, insights, gratitude, or whatever is alive in your mind right now...",
+  "Breathe deeply. What is present for you in this exact moment? Pour your thoughts onto the canvas...",
+  "There is no right or wrong way to journal. Explore your current state of mind, an intention, or a lingering thought...",
+  "Take a moment to center yourself. What would feel good to release or articulate right now?",
+  "Your mind is a sanctuary. Use this space to document a fleeting idea, a quiet reflection, or a burst of inspiration...",
+  "Notice the rhythm of your breath. When you're ready, let your inner dialogue take shape on the page...",
+  "Observe the variables of your day. What can you quiet, and what needs your focus right now?",
+  "Like a system clearing its excess load, let go of mental clutter. What remains when the noise stops?",
+  "Focus on the physical structure of your surroundings. What solid ground are you building today's thoughts upon?",
+  "Consider the energy you are putting into the world today. What transformations are you noticing within yourself?",
+  "Trace the hows and whys of your current mood. What underlying logic or emotion is steering your thoughts?",
+  "Breathe in, noting the ambient temperature of the air. Breathe out, and let your thoughts spill onto the page...",
+  "Unravel the complex systems of your day into simple, manageable threads right here...",
+  "Just as a seed quietly anchors into the soil, let your thoughts ground themselves on this page...",
+  "Acknowledge the physical forces holding you here. In this grounded state, what needs to be said?",
+  "Break down the mechanics of a recent challenge. What small insights can you extract and leave here?",
+  "Shift your focus to the micro-details around you. What hidden patterns or subtle shifts inspire you today?",
+  "Your thoughts are raw material. Process them here without judgment, rigid structure, or expectation...",
+  "Notice the thermal shift in your breath as you exhale. Release your lingering tensions into this space...",
+  "What underlying routines or quiet habits brought you a sense of stability today? Document them here...",
+  "Reverse-engineer your current state of mind. What inputs led you to this exact moment of reflection?"
+];
+
+const getRandomPlaceholder = () => JOURNAL_PLACEHOLDERS[Math.floor(Math.random() * JOURNAL_PLACEHOLDERS.length)];
+
 interface MindfulnessJournalViewProps {
   entries: JournalEntry[];
   onSaveEntry: (entry: JournalEntry) => void;
@@ -80,6 +106,7 @@ export const MindfulnessJournalView: React.FC<MindfulnessJournalViewProps> = ({
   const [editorRandomPrompt, setEditorRandomPrompt] = useState(() =>
     getRandomPrompt(activeMode).text
   );
+  const [editorPlaceholder, setEditorPlaceholder] = useState(() => getRandomPlaceholder());
   const [isPromptExpanded, setIsPromptExpanded] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -107,6 +134,7 @@ export const MindfulnessJournalView: React.FC<MindfulnessJournalViewProps> = ({
     setEditorModeContext(activeMode);
     setEditorPromptUsed(prefilledPrompt ? promptToUse : '');
     setEditorRandomPrompt(promptToUse);
+    setEditorPlaceholder(getRandomPlaceholder());
     setEditorIsPinned(false);
     setIsPromptExpanded(true);
     setViewMode('editor');
@@ -124,6 +152,7 @@ export const MindfulnessJournalView: React.FC<MindfulnessJournalViewProps> = ({
     setEditorModeContext(entry.modeContext || activeMode);
     setEditorPromptUsed(entry.promptUsed || '');
     setEditorRandomPrompt(entry.promptUsed || getRandomPrompt(entry.modeContext).text);
+    setEditorPlaceholder(getRandomPlaceholder());
     setEditorIsPinned(Boolean(entry.isPinned));
     setIsPromptExpanded(Boolean(entry.promptUsed));
     setViewMode('editor');
@@ -624,7 +653,7 @@ export const MindfulnessJournalView: React.FC<MindfulnessJournalViewProps> = ({
                 ref={textareaRef}
                 value={editorContent}
                 onChange={(e) => setEditorContent(e.target.value)}
-                placeholder="Let your thoughts flow freely without rush or judgment. Write your affirmations, insights, gratitude, or whatever is alive in your mind right now..."
+                placeholder={editorPlaceholder}
                 className={`w-full flex-1 min-h-[380px] sm:min-h-[460px] md:min-h-[520px] p-6 rounded-3xl bg-neutral-900/70 border border-neutral-800 text-neutral-100 text-base sm:text-lg placeholder:text-neutral-600 focus:outline-none transition-colors leading-relaxed resize-y font-sans shadow-inner ${
                   isEditor420
                     ? 'focus:border-emerald-500/60'
