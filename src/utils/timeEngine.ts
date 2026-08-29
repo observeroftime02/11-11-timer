@@ -47,6 +47,18 @@ export const TARGET_MOMENTS: Record<TrackerMode, TargetMomentDefinition> = {
   },
 };
 
+const formattersCache = new Map<string, Intl.DateTimeFormat>();
+
+export function getCachedFormatter(locale: string, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const cacheKey = `${locale}-${JSON.stringify(options)}`;
+  let formatter = formattersCache.get(cacheKey);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat(locale, options);
+    formattersCache.set(cacheKey, formatter);
+  }
+  return formatter;
+}
+
 /**
  * Gets the current breakdown (year, month, day, hour, minute, second) in a given IANA timezone.
  */
@@ -61,7 +73,7 @@ export function getTzParts(inputDate: Date, timeZone: string): {
 } {
   const date = ensureDate(inputDate);
   try {
-    const formatter = new Intl.DateTimeFormat('en-US', {
+    const formatter = getCachedFormatter('en-US', {
       timeZone: timeZone || 'America/Vancouver',
       hour12: false,
       year: 'numeric',
@@ -137,7 +149,7 @@ export function findUtcForTzLocalTime(
  */
 export function getGmtOffsetString(date: Date, timeZone: string): string {
   try {
-    const formatter = new Intl.DateTimeFormat('en-US', {
+    const formatter = getCachedFormatter('en-US', {
       timeZone,
       timeZoneName: 'longOffset',
     });
@@ -200,7 +212,7 @@ export function getPastTargetForCity(
     minElapsed = Math.max(0, nowMs - lastTargetDate.getTime());
   }
 
-  const userFormatter = new Intl.DateTimeFormat('en-US', {
+  const userFormatter = getCachedFormatter('en-US', {
     timeZone: userTimeZone,
     month: 'short',
     day: 'numeric',
@@ -270,7 +282,7 @@ export function getNextTargetForCity(
     minRemaining = nextTargetDate.getTime() - nowMs;
   }
 
-  const userFormatter = new Intl.DateTimeFormat('en-US', {
+  const userFormatter = getCachedFormatter('en-US', {
     timeZone: userTimeZone,
     month: 'short',
     day: 'numeric',
@@ -632,7 +644,7 @@ export function formatCurrentTzTime(dateOrTz?: Date | string, maybeTz?: string):
   }
 
   try {
-    return new Intl.DateTimeFormat('en-GB', {
+    return getCachedFormatter('en-GB', {
       timeZone,
       hour: '2-digit',
       minute: '2-digit',
@@ -660,7 +672,7 @@ export function formatCurrentTzTime12(dateOrTz?: Date | string, maybeTz?: string
   }
 
   try {
-    return new Intl.DateTimeFormat('en-US', {
+    return getCachedFormatter('en-US', {
       timeZone,
       hour: 'numeric',
       minute: '2-digit',

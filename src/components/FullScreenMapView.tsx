@@ -305,42 +305,45 @@ export const FullScreenMapView: React.FC<FullScreenMapViewProps> = ({
   return (
     <div className="fixed inset-0 z-50 bg-[#070c18] flex flex-col text-neutral-100 animate-fade-in select-none">
       {/* Top Header Bar */}
-      <header className="px-4 py-3 bg-neutral-900/95 border-b border-neutral-800 flex items-center justify-between gap-3 z-20 backdrop-blur-md">
-        <div className="flex items-center gap-3">
+      <header className="px-2.5 sm:px-4 py-2 sm:py-2.5 bg-neutral-900/95 border-b border-neutral-800 flex items-center justify-between gap-2 z-20 backdrop-blur-md">
+        <div className="flex items-center gap-2 min-w-0">
           <button
             id="btn-back-from-map"
             onClick={onBack}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-semibold text-xs transition-colors cursor-pointer border border-neutral-700 active:scale-95 shadow-md"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-white font-semibold text-xs transition-colors cursor-pointer border border-neutral-700 active:scale-95 shadow-md shrink-0"
+            title="Return to Dashboard"
           >
-            <ArrowLeft className={`w-4 h-4 ${is420 ? 'text-emerald-400' : 'text-amber-400'}`} />
-            <span>← Back to Dashboard</span>
+            <ArrowLeft className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${is420 ? 'text-emerald-400' : 'text-amber-400'}`} />
+            <span className="hidden sm:inline">Dashboard</span>
+            <span className="sm:hidden">Back</span>
           </button>
 
-          <div>
-            <h1 className="font-display font-bold text-sm sm:text-base text-white flex items-center gap-2">
-              <span>Worldwide {is420 ? '4:20' : '11:11'} Map</span>
+          <div className="min-w-0 truncate">
+            <h1 className="font-display font-bold text-xs sm:text-sm md:text-base text-white whitespace-nowrap truncate flex items-center gap-1">
+              <span className="hidden md:inline">Worldwide</span>
+              <span>{is420 ? '🌿 4:20 Map' : '✨ 11:11 Map'}</span>
             </h1>
           </div>
         </div>
 
         {/* Action Controls Bar */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Fly to Next City */}
           <button
             onClick={() => {
               setSelectedCity(nextEvent.city);
               flyToCoords(nextEvent.city.lat, nextEvent.city.lng, 4.5);
             }}
-            className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`px-2 sm:px-3 py-1.5 rounded-xl border text-[11px] sm:text-xs font-semibold flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer ${
               is420
                 ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border-emerald-500/40'
                 : 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border-amber-500/40'
             }`}
-            title={`Jump to Next ${is420 ? '4:20' : '11:11'} City`}
+            title={`Jump to Next ${is420 ? '4:20' : '11:11'} City (${nextEvent.city.name})`}
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Next:</span>
-            <span>{nextEvent.city.name}</span>
+            <Sparkles className="w-3.5 h-3.5 shrink-0" />
+            <span className="hidden md:inline">Next:</span>
+            <span className="truncate max-w-[75px] xs:max-w-[100px] sm:max-w-none">{nextEvent.city.name}</span>
           </button>
 
           {/* Fly to Home City */}
@@ -349,57 +352,61 @@ export const FullScreenMapView: React.FC<FullScreenMapViewProps> = ({
               setSelectedCity(userCityNext.city);
               flyToCoords(userCityNext.city.lat, userCityNext.city.lng, 4.5);
             }}
-            className="px-3 py-1.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
-            title="Jump to Home Location"
+            className="px-2 sm:px-3 py-1.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 text-[11px] sm:text-xs font-semibold flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer"
+            title={`Jump to Home City (${userCityNext.city.name})`}
           >
-            <Navigation className="w-3.5 h-3.5" />
+            <Navigation className="w-3.5 h-3.5 shrink-0" />
             <span className="hidden sm:inline">Home</span>
           </button>
 
           {/* Toggle Timezone Grid */}
           <button
             onClick={() => setShowTimezones(!showTimezones)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold border flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`px-2 sm:px-3 py-1.5 rounded-xl text-[11px] sm:text-xs font-semibold border flex items-center gap-1 sm:gap-1.5 transition-all cursor-pointer ${
               showTimezones
                 ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
                 : 'bg-neutral-800 text-neutral-400 border-neutral-700'
             }`}
-            title="Toggle Timezone Meridians"
+            title={showTimezones ? 'Hide Time Zone Meridians' : 'Show Time Zone Meridians'}
           >
-            <Layers className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">Time Zones</span>
+            <Layers className="w-3.5 h-3.5 shrink-0" />
+            <span className="hidden sm:inline">Zones</span>
           </button>
-
-          {/* Zoom Buttons */}
-          <div className="flex items-center gap-1 bg-neutral-800 p-1 rounded-xl border border-neutral-700">
-            <button
-              onClick={() => handleZoom(-1)}
-              className="p-1.5 rounded-lg text-neutral-300 hover:bg-neutral-700 cursor-pointer"
-              title="Zoom Out"
-            >
-              <ZoomOut className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={() => handleZoom(1)}
-              className="p-1.5 rounded-lg text-neutral-300 hover:bg-neutral-700 cursor-pointer"
-              title="Zoom In"
-            >
-              <ZoomIn className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={resetView}
-              className="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-700 cursor-pointer"
-              title="Reset World View"
-            >
-              <RotateCcw className="w-3 h-3" />
-            </button>
-          </div>
         </div>
       </header>
 
       {/* Main Full-Screen Map Canvas */}
       <main className="relative flex-1 w-full h-full overflow-hidden">
         <div ref={mapContainerRef} className="w-full h-full bg-[#070c18]" />
+
+        {/* Floating Map Zoom & Reset Controls */}
+        <div className="absolute top-3.5 right-3.5 z-[1000] flex flex-col items-center gap-1 bg-neutral-900/90 backdrop-blur-md p-1 rounded-2xl border border-neutral-800 shadow-2xl">
+          <button
+            onClick={() => handleZoom(1)}
+            className="p-2 rounded-xl text-neutral-200 hover:text-white hover:bg-neutral-800 active:scale-95 transition-all cursor-pointer"
+            title="Zoom In"
+            aria-label="Zoom In"
+          >
+            <ZoomIn className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => handleZoom(-1)}
+            className="p-2 rounded-xl text-neutral-200 hover:text-white hover:bg-neutral-800 active:scale-95 transition-all cursor-pointer"
+            title="Zoom Out"
+            aria-label="Zoom Out"
+          >
+            <ZoomOut className="w-4 h-4" />
+          </button>
+          <div className="w-4 h-px bg-neutral-800 my-0.5" />
+          <button
+            onClick={resetView}
+            className="p-2 rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-800 active:scale-95 transition-all cursor-pointer"
+            title="Reset World View"
+            aria-label="Reset World View"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+          </button>
+        </div>
 
         {/* Floating Timezone Highlight Banner */}
         {selectedTzOffset !== null && (

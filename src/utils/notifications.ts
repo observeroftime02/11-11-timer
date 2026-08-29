@@ -1,6 +1,6 @@
 import { NotificationPreferences, CityTimeZone, TrackerMode } from '../types';
 import { WORLD_CITIES } from '../data/timezones';
-import { getNextTargetForCity, findUtcForTzLocalTime, getTzParts, TARGET_MOMENTS } from './timeEngine';
+import { getNextTargetForCity, findUtcForTzLocalTime, getTzParts, TARGET_MOMENTS, getCachedFormatter } from './timeEngine';
 
 const STORAGE_KEY_PREFS = '1111_notification_prefs';
 
@@ -430,18 +430,29 @@ export async function syncScheduled1111Notifications(
       return 0;
     }
 
-    // Ensure notification channel exists
+    // Ensure both notification channels exist in case they were cleared
     try {
       await LocalNotifications.createChannel({
-        id: NOTIFICATION_CHANNEL_ID,
-        name: '11:11 & 4:20 Worldwide Alerts',
-        description: 'Notifies when 11:11 or 4:20 strikes with a peaceful harmonic chime',
+        id: NOTIFICATION_CHANNEL_1111_ID,
+        name: '11:11 Worldwide Crystal Chimes',
+        description: 'Notifies when 11:11 strikes worldwide with a 528Hz peaceful crystal chime',
         importance: 5,
         visibility: 1,
         sound: NOTIFICATION_SOUND,
         vibration: true,
         lights: true,
         lightColor: '#F59E0B',
+      });
+      await LocalNotifications.createChannel({
+        id: NOTIFICATION_CHANNEL_420_ID,
+        name: '4:20 Worldwide Chill Chimes',
+        description: 'Notifies when 4:20 strikes worldwide with a 432Hz mellow resonant chime',
+        importance: 5,
+        visibility: 1,
+        sound: NOTIFICATION_SOUND_420,
+        vibration: true,
+        lights: true,
+        lightColor: '#10B981',
       });
     } catch {
       // ignore
@@ -517,7 +528,7 @@ export async function syncScheduled1111Notifications(
 
     for (const [key, slotData] of sortedSlots) {
       const triggerBucketMs = parseInt(key.split('-')[1], 10);
-      const userFormatter = new Intl.DateTimeFormat('en-US', {
+      const userFormatter = getCachedFormatter('en-US', {
         timeZone: userTimeZone,
         hour: 'numeric',
         minute: '2-digit',

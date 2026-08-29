@@ -635,40 +635,26 @@ export const MindfulnessJournalView: React.FC<MindfulnessJournalViewProps> = ({
           </div>
 
           {/* Bottom Action Bar */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-neutral-800/80">
-            <div className="text-xs text-neutral-500 flex items-center gap-2">
-              <span>Shortcuts: Press</span>
-              <kbd className="px-2 py-0.5 rounded bg-neutral-900 border border-neutral-800 text-neutral-400 font-mono text-[10px]">
-                Ctrl + S
-              </kbd>
-              <span>or</span>
-              <kbd className="px-2 py-0.5 rounded bg-neutral-900 border border-neutral-800 text-neutral-400 font-mono text-[10px]">
-                Cmd + S
-              </kbd>
-              <span>to save instantly</span>
-            </div>
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-neutral-800/80">
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              className="px-4 sm:px-5 py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-850 text-neutral-400 hover:text-white text-xs sm:text-sm font-semibold border border-neutral-800 cursor-pointer transition-colors"
+            >
+              Cancel / Return
+            </button>
 
-            <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-              <button
-                type="button"
-                onClick={() => setViewMode('list')}
-                className="px-5 py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-850 text-neutral-400 hover:text-white text-xs sm:text-sm font-semibold border border-neutral-800 cursor-pointer transition-colors"
-              >
-                Cancel / Return
-              </button>
-
-              <button
-                type="button"
-                onClick={handleSaveCurrentEntry}
-                className={`px-7 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-xl transition-transform active:scale-95 cursor-pointer text-neutral-950 ${
-                  isEditor420
-                    ? 'bg-emerald-400 hover:bg-emerald-300 shadow-emerald-400/20'
-                    : 'bg-amber-400 hover:bg-amber-300 shadow-amber-400/20'
-                }`}
-              >
-                {editingEntryId ? 'Save Changes' : 'Save Reflection'}
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={handleSaveCurrentEntry}
+              className={`px-5 sm:px-7 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-xl transition-transform active:scale-95 cursor-pointer text-neutral-950 ${
+                isEditor420
+                  ? 'bg-emerald-400 hover:bg-emerald-300 shadow-emerald-400/20'
+                  : 'bg-amber-400 hover:bg-amber-300 shadow-amber-400/20'
+              }`}
+            >
+              {editingEntryId ? 'Save Changes' : 'Save Reflection'}
+            </button>
           </div>
         </main>
       </div>
@@ -687,22 +673,22 @@ export const MindfulnessJournalView: React.FC<MindfulnessJournalViewProps> = ({
       }`}
     >
       {/* Top Header Bar */}
-      <header className="sticky top-0 z-30 backdrop-blur-md bg-neutral-950/85 border-b border-neutral-800/80 px-4 lg:px-8 py-3.5 transition-colors">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+      <header className="sticky top-0 z-30 backdrop-blur-md bg-neutral-950/85 border-b border-neutral-800/80 px-3 sm:px-4 lg:px-8 py-2.5 sm:py-3 transition-colors">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <button
               id="btn-journal-back-dashboard"
               onClick={onBack}
-              className="p-2 rounded-xl bg-neutral-900 hover:bg-neutral-850 text-neutral-300 hover:text-white border border-neutral-800 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold"
+              className="p-2 rounded-xl bg-neutral-900 hover:bg-neutral-850 text-neutral-300 hover:text-white border border-neutral-800 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-semibold shrink-0"
               title="Return to World Clock Dashboard"
             >
               <ArrowLeft className="w-4 h-4" />
               <span className="hidden sm:inline">Back to Clock</span>
             </button>
 
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
               <div
-                className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold shadow-md ${
+                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center font-bold shadow-md shrink-0 ${
                   is420
                     ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                     : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
@@ -710,12 +696,15 @@ export const MindfulnessJournalView: React.FC<MindfulnessJournalViewProps> = ({
               >
                 <BookOpen className="w-4 h-4" />
               </div>
-              <div>
-                <h1 className="font-display font-bold text-base sm:text-lg text-white flex items-center gap-2">
-                  <span>{is420 ? '🌿 Vibe Mindfulness Journal' : '✨ Wish Mindfulness Journal'}</span>
+              <div className="min-w-0">
+                <h1 className="font-display font-bold text-sm sm:text-base md:text-lg text-white whitespace-nowrap truncate flex items-center gap-1.5">
+                  <span>{is420 ? '🌿 Vibe Journal' : '✨ Wish Journal'}</span>
+                  <span className="hidden md:inline text-neutral-400 font-normal text-xs">
+                    • Mindfulness
+                  </span>
                 </h1>
-                <p className="text-[11px] text-neutral-400 hidden sm:block">
-                  Unified space for intentions, reflections, and mindful moments
+                <p className="text-[11px] text-neutral-400 hidden sm:block truncate">
+                  Intentions, reflections, and mindful moments
                 </p>
               </div>
             </div>
@@ -724,13 +713,13 @@ export const MindfulnessJournalView: React.FC<MindfulnessJournalViewProps> = ({
           <button
             id="btn-journal-new-entry-header"
             onClick={() => handleOpenNewEntry()}
-            className={`px-4 py-2 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg transition-transform active:scale-95 cursor-pointer text-neutral-950 ${
+            className={`px-3 sm:px-4 py-2 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-lg transition-transform active:scale-95 cursor-pointer text-neutral-950 shrink-0 whitespace-nowrap ${
               is420
                 ? 'bg-emerald-400 hover:bg-emerald-300 shadow-emerald-400/20'
                 : 'bg-amber-400 hover:bg-amber-300 shadow-amber-400/20'
             }`}
           >
-            <Plus className="w-4 h-4 text-neutral-950" />
+            <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-950 stroke-[2.5]" />
             <span>New Reflection</span>
           </button>
         </div>
@@ -962,11 +951,6 @@ export const MindfulnessJournalView: React.FC<MindfulnessJournalViewProps> = ({
                       {entry.title || 'Untitled Reflection'}
                     </h3>
 
-                    {entry.promptUsed && (
-                      <div className="text-[11px] text-neutral-400 italic bg-neutral-950/50 px-2.5 py-1.5 rounded-lg border border-neutral-850 line-clamp-1">
-                        Prompt: "{entry.promptUsed}"
-                      </div>
-                    )}
 
                     <p className="text-xs text-neutral-300/90 line-clamp-4 leading-relaxed font-sans whitespace-pre-line">
                       {entry.content || '(No additional text)'}
