@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   ArrowLeft,
   BookOpen,
@@ -19,6 +19,11 @@ import {
   Smile,
   Feather,
   Filter,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Hash,
+  FileText,
 } from 'lucide-react';
 import { JournalEntry, TrackerMode } from '../types';
 import {
@@ -48,34 +53,40 @@ export const MindfulnessJournalView: React.FC<MindfulnessJournalViewProps> = ({
 }) => {
   const is420 = activeMode === '420';
 
-  // Navigation / Search / Filter State
+  // Screen View Mode: 'list' (gallery of reflections) or 'editor' (dedicated spacious writing screen)
+  const [viewMode, setViewMode] = useState<'list' | 'editor'>(
+    initialNewEntry ? 'editor' : 'list'
+  );
+
+  // Search & Filter State in list view
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMoodFilter, setSelectedMoodFilter] = useState<string>('All');
   const [selectedModeFilter, setSelectedModeFilter] = useState<'all' | '1111' | '420'>('all');
 
-  // Active Inspiration Prompt for the header banner
+  // Active Inspiration Prompt for the header banner in list view
   const [currentInspirationPrompt, setCurrentInspirationPrompt] = useState(() =>
     getRandomPrompt(activeMode)
   );
 
   // Editor State
-  const [isEditorOpen, setIsEditorOpen] = useState(initialNewEntry);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [editorTitle, setEditorTitle] = useState('');
   const [editorContent, setEditorContent] = useState('');
-  const [editorMood, setEditorMood] = useState<string>(is420 ? 'Relaxed' : 'Grateful');
-  const [customMoodInput, setCustomMoodInput] = useState('');
-  const [editorTags, setEditorTags] = useState<string[]>([]);
+  const [editorSelectedTags, setEditorSelectedTags] = useState<string[]>([]);
+  const [customTagInput, setCustomTagInput] = useState('');
   const [editorModeContext, setEditorModeContext] = useState<TrackerMode>(activeMode);
   const [editorPromptUsed, setEditorPromptUsed] = useState<string>('');
   const [editorIsPinned, setEditorIsPinned] = useState(false);
   const [editorRandomPrompt, setEditorRandomPrompt] = useState(() =>
     getRandomPrompt(activeMode).text
   );
+  const [isPromptExpanded, setIsPromptExpanded] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
-  // Handle shuffling inspiration prompt
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Handle shuffling inspiration prompt in list view
   const handleShuffleInspiration = () => {
     let next = getRandomPrompt(activeMode);
     while (next.id === currentInspirationPrompt.id && MINDFULNESS_PROMPTS.length > 1) {
@@ -84,48 +95,104 @@ export const MindfulnessJournalView: React.FC<MindfulnessJournalViewProps> = ({
     setCurrentInspirationPrompt(next);
   };
 
-  // Open editor for a brand new entry
+  // Open dedicated editor for a brand new entry
   const handleOpenNewEntry = (prefilledPrompt?: string) => {
     const promptToUse = prefilledPrompt || getRandomPrompt(activeMode).text;
+    const defaultTag = is420 ? 'Relaxed' : 'Grateful';
     setEditingEntryId(null);
     setEditorTitle('');
-    setEditorContent('');
-    setEditorMood(is420 ? 'Relaxed' : 'Grateful');
-    setCustomMoodInput('');
-    setEditorTags([is420 ? 'Relaxed' : 'Grateful']);
+    setEditorContent(prefilledPrompt ? `Prompt reflection: ${promptToUse}\n\n` : '');
+    setEditorSelectedTags([defaultTag]);
+    setCustomTagInput('');
     setEditorModeContext(activeMode);
     setEditorPromptUsed(prefilledPrompt ? promptToUse : '');
     setEditorRandomPrompt(promptToUse);
     setEditorIsPinned(false);
-    setIsEditorOpen(true);
+    setIsPromptExpanded(true);
+    setViewMode('editor');
   };
 
-  // Open editor to edit an existing entry
+  // Open dedicated editor to edit an existing entry
   const handleOpenEditEntry = (entry: JournalEntry) => {
     setEditingEntryId(entry.id);
     setEditorTitle(entry.title);
     setEditorContent(entry.content);
-    setEditorMood(entry.mood);
-    setCustomMoodInput('');
-    setEditorTags(entry.tags || [entry.mood]);
+    // Combine existing tags or fallback to mood
+    const existingTags = entry.tags && entry.tags.length > 0 ? entry.tags : [entry.mood || (is420 ? 'Relaxed' : 'Grateful')];
+    setEditorSelectedTags(existingTags);
+    setCustomTagInput('');
     setEditorModeContext(entry.modeContext || activeMode);
     setEditorPromptUsed(entry.promptUsed || '');
     setEditorRandomPrompt(entry.promptUsed || getRandomPrompt(entry.modeContext).text);
     setEditorIsPinned(Boolean(entry.isPinned));
-    setIsEditorOpen(true);
+    setIsPromptExpanded(Boolean(entry.promptUsed));
+    setViewMode('editor');
   };
 
-  const handleSaveCurrentEntry = () => {
-    const finalMood = customMoodInput.trim() || editorMood || (is420 ? 'Relaxed' : 'Grateful');
-    const finalTags = Array.from(
-      new Set([...editorTags, finalMood].filter(Boolean))
+  // Toggle a mood / vibe tag in the editor
+  const handleToggleTag = (tag: string) => {
+    setEditorSelectedTags((prev) => {
+      const exists = prev.some((t) => t.toLowerCase() === tag.toLowerCase());
+      if (exists) {
+        return prev.filter((t) => t.toLowerCase() !== tag.toLowerCase());
+      } else {
+        return [...prev, tag];
+      }
+    });
+  };
+
+  // Remove a specific tag
+  const handleRemoveTag = (tagToRemove: string) => {
+    setEditorSelectedTags((prev) =>
+      prev.filter((t) => t.toLowerCase() !== tagToRemove.toLowerCase())
     );
+  };
+
+  // Add custom tags (supports comma separation)
+  const handleAddCustomTag = () => {
+    const raw = customTagInput.trim();
+    if (!raw) return;
+
+    // Split by comma in case user typed multiple tags
+    const newTags = raw
+      .split(',')
+      .map((t) => t.trim().replace(/^#+/, ''))
+      .filter((t) => t.length > 0);
+
+    if (newTags.length > 0) {
+      setEditorSelectedTags((prev) => {
+        const next = [...prev];
+        newTags.forEach((tag) => {
+          if (!next.some((existing) => existing.toLowerCase() === tag.toLowerCase())) {
+            next.push(tag);
+          }
+        });
+        return next;
+      });
+      setCustomTagInput('');
+    }
+  };
+
+  // Save current entry and return to list view
+  const handleSaveCurrentEntry = () => {
+    // If user has unsubmitted text in customTagInput, include it
+    let finalTags = [...editorSelectedTags];
+    const rawCustom = customTagInput.trim().replace(/^#+/, '');
+    if (rawCustom && !finalTags.some((t) => t.toLowerCase() === rawCustom.toLowerCase())) {
+      finalTags.push(rawCustom);
+    }
+
+    if (finalTags.length === 0) {
+      finalTags = [editorModeContext === '420' ? 'Relaxed' : 'Grateful'];
+    }
+
+    const primaryMood = finalTags[0] || (editorModeContext === '420' ? 'Relaxed' : 'Grateful');
 
     const newOrUpdated: JournalEntry = {
       id: editingEntryId || `entry-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       title: editorTitle.trim() || 'Untitled Reflection',
       content: editorContent.trim(),
-      mood: finalMood,
+      mood: primaryMood,
       tags: finalTags,
       createdAt: editingEntryId
         ? entries.find((e) => e.id === editingEntryId)?.createdAt || Date.now()
@@ -137,26 +204,24 @@ export const MindfulnessJournalView: React.FC<MindfulnessJournalViewProps> = ({
     };
 
     onSaveEntry(newOrUpdated);
-    setIsEditorOpen(false);
+    setViewMode('list');
   };
 
-  const handleToggleTag = (tag: string) => {
-    setEditorTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    );
-  };
-
-  const handleAddCustomMood = () => {
-    const trimmed = customMoodInput.trim();
-    if (!trimmed) return;
-    setEditorMood(trimmed);
-    if (!editorTags.includes(trimmed)) {
-      setEditorTags((prev) => [...prev, trimmed]);
-    }
-  };
+  // Keyboard shortcut: Ctrl+S / Cmd+S to save
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (viewMode === 'editor' && (e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault();
+        handleSaveCurrentEntry();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [viewMode, editorTitle, editorContent, editorSelectedTags, customTagInput, editorModeContext, editorPromptUsed, editorIsPinned, editingEntryId]);
 
   const handleCopyEntryText = (entry: JournalEntry) => {
-    const text = `${entry.title}\n${new Date(entry.createdAt).toLocaleString()}\nMood: ${entry.mood}\n\n${entry.content}`;
+    const tagsStr = entry.tags?.length ? `\nTags: ${entry.tags.map((t) => `#${t}`).join(' ')}` : '';
+    const text = `${entry.title}\n${new Date(entry.createdAt).toLocaleString()}\nMood: ${entry.mood}${tagsStr}\n\n${entry.content}`;
     navigator.clipboard.writeText(text);
     setCopiedId(entry.id);
     setTimeout(() => setCopiedId(null), 2000);
@@ -171,21 +236,20 @@ export const MindfulnessJournalView: React.FC<MindfulnessJournalViewProps> = ({
           return false;
         }
 
-        // Mood tag filter
+        // Mood / tag filter
         if (selectedMoodFilter !== 'All') {
-          const hasMood = entry.mood.toLowerCase() === selectedMoodFilter.toLowerCase();
-          const hasTag = entry.tags?.some(
-            (t) => t.toLowerCase() === selectedMoodFilter.toLowerCase()
-          );
+          const filterLower = selectedMoodFilter.toLowerCase();
+          const hasMood = entry.mood?.toLowerCase() === filterLower;
+          const hasTag = entry.tags?.some((t) => t.toLowerCase() === filterLower);
           if (!hasMood && !hasTag) return false;
         }
 
         // Search query
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase();
-          const matchesTitle = entry.title.toLowerCase().includes(q);
-          const matchesContent = entry.content.toLowerCase().includes(q);
-          const matchesMood = entry.mood.toLowerCase().includes(q);
+          const matchesTitle = entry.title?.toLowerCase().includes(q);
+          const matchesContent = entry.content?.toLowerCase().includes(q);
+          const matchesMood = entry.mood?.toLowerCase().includes(q);
           const matchesTags = entry.tags?.some((t) => t.toLowerCase().includes(q));
           return matchesTitle || matchesContent || matchesMood || matchesTags;
         }
@@ -200,7 +264,7 @@ export const MindfulnessJournalView: React.FC<MindfulnessJournalViewProps> = ({
       });
   }, [entries, searchQuery, selectedMoodFilter, selectedModeFilter]);
 
-  // Aggregate all unique tags used across existing entries + presets
+  // Aggregate all unique tags used across existing entries + presets for the filter pills
   const availableFilterMoods = useMemo(() => {
     const tagSet = new Set<string>();
     entries.forEach((e) => {
@@ -212,8 +276,408 @@ export const MindfulnessJournalView: React.FC<MindfulnessJournalViewProps> = ({
     return ['All', ...Array.from(tagSet)];
   }, [entries, is420]);
 
-  const activeMoodPresets = is420 ? MOOD_PRESETS_420 : MOOD_PRESETS_1111;
+  const activeMoodPresets = editorModeContext === '420' ? MOOD_PRESETS_420 : MOOD_PRESETS_1111;
 
+  // Live writing metrics
+  const wordCount = useMemo(() => {
+    const trimmed = editorContent.trim();
+    return trimmed ? trimmed.split(/\s+/).length : 0;
+  }, [editorContent]);
+
+  const estimatedReadingTime = useMemo(() => {
+    if (wordCount === 0) return '0 min';
+    const minutes = Math.ceil(wordCount / 200);
+    return `~${minutes} min read`;
+  }, [wordCount]);
+
+  // ==========================================
+  // VIEW 1: FULL SCREEN DEDICATED WRITING CANVAS
+  // ==========================================
+  if (viewMode === 'editor') {
+    const isEditor420 = editorModeContext === '420';
+
+    return (
+      <div
+        className={`min-h-screen bg-neutral-950 text-neutral-100 flex flex-col ${
+          isEditor420
+            ? 'selection:bg-emerald-500/30 selection:text-emerald-200'
+            : 'selection:bg-amber-500/30 selection:text-amber-200'
+        }`}
+      >
+        {/* Dedicated Editor Navigation Top Bar */}
+        <header className="sticky top-0 z-40 backdrop-blur-md bg-neutral-950/90 border-b border-neutral-800/90 px-4 lg:px-8 py-3.5 transition-colors">
+          <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
+            {/* Left Back / Cancel button */}
+            <div className="flex items-center gap-3">
+              <button
+                id="btn-editor-back-to-list"
+                onClick={() => setViewMode('list')}
+                className="px-3 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-850 text-neutral-300 hover:text-white border border-neutral-800 transition-colors cursor-pointer flex items-center gap-2 text-xs sm:text-sm font-semibold"
+                title="Return to Journal List"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Journal Gallery</span>
+              </button>
+
+              <div className="hidden sm:flex items-center gap-2 text-xs text-neutral-400">
+                <span className="text-neutral-700">/</span>
+                <span className="font-medium">
+                  {editingEntryId ? 'Edit Reflection' : 'New Reflection'}
+                </span>
+              </div>
+            </div>
+
+            {/* Center Mode Switcher */}
+            <div className="inline-flex rounded-xl bg-neutral-900 p-1 border border-neutral-800 text-xs">
+              <button
+                type="button"
+                onClick={() => setEditorModeContext('1111')}
+                className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                  editorModeContext === '1111'
+                    ? 'bg-amber-400 text-neutral-950 shadow-sm'
+                    : 'text-neutral-400 hover:text-neutral-200'
+                }`}
+              >
+                ✨ 11:11 Wish
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditorModeContext('420')}
+                className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                  editorModeContext === '420'
+                    ? 'bg-emerald-400 text-neutral-950 shadow-sm'
+                    : 'text-neutral-400 hover:text-neutral-200'
+                }`}
+              >
+                🌿 4:20 Vibe
+              </button>
+            </div>
+
+            {/* Right Quick Actions & Save Button */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setEditorIsPinned(!editorIsPinned)}
+                className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+                  editorIsPinned
+                    ? isEditor420
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                      : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                    : 'bg-neutral-900 text-neutral-400 border-neutral-800 hover:text-white'
+                }`}
+                title={editorIsPinned ? 'Pinned to top' : 'Pin reflection'}
+              >
+                <Pin className={`w-4 h-4 ${editorIsPinned ? 'fill-current' : ''}`} />
+              </button>
+
+              <button
+                id="btn-editor-save-entry"
+                onClick={handleSaveCurrentEntry}
+                className={`px-4 sm:px-6 py-2 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg transition-transform active:scale-95 cursor-pointer text-neutral-950 ${
+                  isEditor420
+                    ? 'bg-emerald-400 hover:bg-emerald-300 shadow-emerald-400/20'
+                    : 'bg-amber-400 hover:bg-amber-300 shadow-amber-400/20'
+                }`}
+              >
+                <CheckCircle2 className="w-4 h-4 text-neutral-950" />
+                <span>{editingEntryId ? 'Save Changes' : 'Save Reflection'}</span>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Spacious Writing Canvas */}
+        <main className="flex-1 max-w-5xl w-full mx-auto px-4 lg:px-8 py-6 md:py-8 space-y-6 flex flex-col">
+          {/* Inspiration Prompt Collapsible Bar */}
+          <div
+            className={`rounded-2xl border transition-all overflow-hidden ${
+              isEditor420
+                ? 'bg-emerald-950/20 border-emerald-500/30'
+                : 'bg-amber-950/20 border-amber-500/30'
+            }`}
+          >
+            <div className="p-3.5 sm:p-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-xs font-semibold">
+                <Sparkles
+                  className={`w-4 h-4 ${isEditor420 ? 'text-emerald-400' : 'text-amber-400'}`}
+                />
+                <span className={isEditor420 ? 'text-emerald-300' : 'text-amber-300'}>
+                  Mindfulness Prompt Inspiration
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditorRandomPrompt(getRandomPrompt(editorModeContext).text)}
+                  className="px-2.5 py-1 rounded-lg bg-neutral-900/80 hover:bg-neutral-850 text-neutral-300 hover:text-white border border-neutral-800 text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer"
+                  title="Shuffle prompt"
+                >
+                  <Shuffle className="w-3 h-3" />
+                  <span>Shuffle</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsPromptExpanded(!isPromptExpanded)}
+                  className="p-1 text-neutral-400 hover:text-neutral-200 cursor-pointer"
+                  title={isPromptExpanded ? 'Minimize prompt' : 'Expand prompt'}
+                >
+                  {isPromptExpanded ? (
+                    <ChevronUp className="w-4 h-4" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {isPromptExpanded && (
+              <div className="px-4 pb-4 pt-1 border-t border-neutral-800/50 space-y-2">
+                <p className="text-sm sm:text-base text-neutral-100 font-display italic leading-relaxed">
+                  "{editorRandomPrompt}"
+                </p>
+                <div className="flex items-center gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditorPromptUsed(editorRandomPrompt);
+                      const prefix = `Prompt reflection: "${editorRandomPrompt}"\n\n`;
+                      if (!editorContent.includes(editorRandomPrompt)) {
+                        setEditorContent((prev) => prefix + prev);
+                      }
+                      if (textareaRef.current) {
+                        textareaRef.current.focus();
+                      }
+                    }}
+                    className={`text-xs font-semibold underline cursor-pointer ${
+                      isEditor420
+                        ? 'text-emerald-400 hover:text-emerald-300'
+                        : 'text-amber-400 hover:text-amber-300'
+                    }`}
+                  >
+                    + Insert prompt into text body
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Title Box */}
+          <div className="space-y-1">
+            <input
+              type="text"
+              value={editorTitle}
+              onChange={(e) => setEditorTitle(e.target.value)}
+              placeholder="Title your moment (e.g. Afternoon Stillness, Releasing Expectations...)"
+              className={`w-full px-5 py-4 rounded-2xl bg-neutral-900/80 border border-neutral-800 text-white font-display font-bold text-lg sm:text-2xl placeholder:text-neutral-600 focus:outline-none transition-colors ${
+                isEditor420
+                  ? 'focus:border-emerald-500/70'
+                  : 'focus:border-amber-500/70'
+              }`}
+              autoFocus
+            />
+          </div>
+
+          {/* Vibes & Mood Tags Palette (Multi-select + Custom vibes) */}
+          <div className="rounded-2xl bg-neutral-900/60 p-4 md:p-5 border border-neutral-800 space-y-3.5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Tag
+                  className={`w-4 h-4 ${isEditor420 ? 'text-emerald-400' : 'text-amber-400'}`}
+                />
+                <h4 className="text-xs sm:text-sm font-bold text-white">
+                  Moods & Vibe Tags
+                </h4>
+                <span className="text-[11px] text-neutral-400">
+                  (Select multiple or type custom vibes)
+                </span>
+              </div>
+
+              {editorSelectedTags.length > 0 && (
+                <div className="text-[11px] text-neutral-400">
+                  <strong className="text-neutral-200">{editorSelectedTags.length}</strong> active{' '}
+                  {editorSelectedTags.length === 1 ? 'vibe' : 'vibes'}
+                </div>
+              )}
+            </div>
+
+            {/* Active Selected Tags Display */}
+            {editorSelectedTags.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap pt-1 pb-1">
+                <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider mr-1">
+                  Selected:
+                </span>
+                {editorSelectedTags.map((tag) => (
+                  <span
+                    key={tag}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold border transition-all ${
+                      isEditor420
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                        : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                    }`}
+                  >
+                    <span>#{tag}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTag(tag)}
+                      className="p-0.5 rounded-md hover:bg-neutral-800 text-neutral-400 hover:text-white cursor-pointer"
+                      title={`Remove tag ${tag}`}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Clickable Preset Mood/Vibe Chips */}
+            <div className="space-y-1.5">
+              <div className="text-[11px] text-neutral-400 font-medium">Quick Preset Vibes:</div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {activeMoodPresets.map((preset) => {
+                  const isSelected = editorSelectedTags.some(
+                    (t) => t.toLowerCase() === preset.toLowerCase()
+                  );
+                  return (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => handleToggleTag(preset)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                        isSelected
+                          ? isEditor420
+                            ? 'bg-emerald-500 text-neutral-950 border-emerald-400 shadow-md font-bold'
+                            : 'bg-amber-500 text-neutral-950 border-amber-400 shadow-md font-bold'
+                          : 'bg-neutral-950 text-neutral-400 border-neutral-800 hover:text-neutral-200 hover:border-neutral-700'
+                      }`}
+                    >
+                      {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                      <span>{preset}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Custom Tag Input */}
+            <div className="flex items-center gap-2 pt-1">
+              <div className="relative flex-1">
+                <Hash className="w-3.5 h-3.5 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={customTagInput}
+                  onChange={(e) => setCustomTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddCustomTag();
+                    }
+                  }}
+                  placeholder="Type custom feeling, intention, or tag and press Enter (e.g. Mountain Hike, Morning Coffee)..."
+                  className={`w-full pl-8 pr-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-xs sm:text-sm text-white placeholder:text-neutral-600 focus:outline-none transition-colors ${
+                    isEditor420
+                      ? 'focus:border-emerald-500/60'
+                      : 'focus:border-amber-500/60'
+                  }`}
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleAddCustomTag}
+                disabled={!customTagInput.trim()}
+                className={`px-4 py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                  isEditor420
+                    ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border-emerald-500/30'
+                    : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border-amber-500/30'
+                }`}
+              >
+                + Add Tag
+              </button>
+            </div>
+          </div>
+
+          {/* Large Expansive Editor Text Canvas */}
+          <div className="flex-1 flex flex-col space-y-2">
+            <div className="flex items-center justify-between text-xs px-1">
+              <label className="font-semibold text-neutral-300 flex items-center gap-1.5">
+                <Feather
+                  className={`w-3.5 h-3.5 ${
+                    isEditor420 ? 'text-emerald-400' : 'text-amber-400'
+                  }`}
+                />
+                <span>Your Mindfulness Sanctuary Canvas</span>
+              </label>
+
+              <div className="flex items-center gap-3 text-neutral-400 font-mono text-[11px]">
+                <span>{wordCount} words</span>
+                <span>•</span>
+                <span>{editorContent.length} chars</span>
+                <span>•</span>
+                <span className="text-neutral-500">{estimatedReadingTime}</span>
+              </div>
+            </div>
+
+            <div className="relative flex-1 flex flex-col">
+              <textarea
+                ref={textareaRef}
+                value={editorContent}
+                onChange={(e) => setEditorContent(e.target.value)}
+                placeholder="Let your thoughts flow freely without rush or judgment. Write your affirmations, insights, gratitude, or whatever is alive in your mind right now..."
+                className={`w-full flex-1 min-h-[380px] sm:min-h-[460px] md:min-h-[520px] p-6 rounded-3xl bg-neutral-900/70 border border-neutral-800 text-neutral-100 text-base sm:text-lg placeholder:text-neutral-600 focus:outline-none transition-colors leading-relaxed resize-y font-sans shadow-inner ${
+                  isEditor420
+                    ? 'focus:border-emerald-500/60'
+                    : 'focus:border-amber-500/60'
+                }`}
+              />
+            </div>
+          </div>
+
+          {/* Bottom Action Bar */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-neutral-800/80">
+            <div className="text-xs text-neutral-500 flex items-center gap-2">
+              <span>Shortcuts: Press</span>
+              <kbd className="px-2 py-0.5 rounded bg-neutral-900 border border-neutral-800 text-neutral-400 font-mono text-[10px]">
+                Ctrl + S
+              </kbd>
+              <span>or</span>
+              <kbd className="px-2 py-0.5 rounded bg-neutral-900 border border-neutral-800 text-neutral-400 font-mono text-[10px]">
+                Cmd + S
+              </kbd>
+              <span>to save instantly</span>
+            </div>
+
+            <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+              <button
+                type="button"
+                onClick={() => setViewMode('list')}
+                className="px-5 py-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-850 text-neutral-400 hover:text-white text-xs sm:text-sm font-semibold border border-neutral-800 cursor-pointer transition-colors"
+              >
+                Cancel / Return
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSaveCurrentEntry}
+                className={`px-7 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-xl transition-transform active:scale-95 cursor-pointer text-neutral-950 ${
+                  isEditor420
+                    ? 'bg-emerald-400 hover:bg-emerald-300 shadow-emerald-400/20'
+                    : 'bg-amber-400 hover:bg-amber-300 shadow-amber-400/20'
+                }`}
+              >
+                {editingEntryId ? 'Save Changes' : 'Save Reflection'}
+              </button>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // ==========================================
+  // VIEW 2: JOURNAL GALLERY & TIMELINE VIEW
+  // ==========================================
   return (
     <div
       className={`min-h-screen bg-neutral-950 text-neutral-100 flex flex-col ${
@@ -384,7 +848,7 @@ export const MindfulnessJournalView: React.FC<MindfulnessJournalViewProps> = ({
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
           <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1">
             <Filter className="w-3 h-3" />
-            <span>Moods:</span>
+            <span>Filter Tags:</span>
           </span>
           {availableFilterMoods.map((mood) => (
             <button
@@ -398,7 +862,7 @@ export const MindfulnessJournalView: React.FC<MindfulnessJournalViewProps> = ({
                   : 'bg-neutral-900 text-neutral-400 border-neutral-800 hover:text-neutral-200 hover:border-neutral-700'
               }`}
             >
-              {mood}
+              {mood === 'All' ? 'All Tags' : `#${mood}`}
             </button>
           ))}
         </div>
@@ -424,7 +888,7 @@ export const MindfulnessJournalView: React.FC<MindfulnessJournalViewProps> = ({
               <p className="text-xs text-neutral-400 leading-relaxed">
                 {searchQuery || selectedMoodFilter !== 'All'
                   ? 'Try adjusting your search terms or filter selection to find your entries.'
-                  : 'Begin by writing down your first intention, gratitude reflection, or mindful thought.'}
+                  : 'Begin by writing down your first intention, gratitude reflection, or mindful thought in our dedicated editor.'}
               </p>
             </div>
             <button
@@ -448,11 +912,8 @@ export const MindfulnessJournalView: React.FC<MindfulnessJournalViewProps> = ({
                 day: 'numeric',
                 year: 'numeric',
               });
-              const timeStr = new Date(entry.createdAt).toLocaleTimeString(undefined, {
-                hour: 'numeric',
-                minute: '2-digit',
-              });
               const isEntry420 = entry.modeContext === '420';
+              const displayTags = entry.tags && entry.tags.length > 0 ? entry.tags : [entry.mood];
 
               return (
                 <div
@@ -467,7 +928,7 @@ export const MindfulnessJournalView: React.FC<MindfulnessJournalViewProps> = ({
                   }`}
                 >
                   {/* Card Top Details */}
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span
@@ -478,10 +939,6 @@ export const MindfulnessJournalView: React.FC<MindfulnessJournalViewProps> = ({
                           }`}
                         >
                           {isEntry420 ? '🌿 4:20' : '✨ 11:11'}
-                        </span>
-
-                        <span className="px-2 py-0.5 rounded-md bg-neutral-800 text-neutral-300 text-[10px] font-medium border border-neutral-700">
-                          {entry.mood}
                         </span>
 
                         {entry.isPinned && (
@@ -517,19 +974,19 @@ export const MindfulnessJournalView: React.FC<MindfulnessJournalViewProps> = ({
                   </div>
 
                   {/* Card Bottom / Tags & Quick Actions */}
-                  <div className="pt-2 border-t border-neutral-800/80 flex items-center justify-between text-[11px] text-neutral-400 gap-2">
-                    <div className="flex items-center gap-1 overflow-hidden truncate">
-                      {entry.tags?.slice(0, 3).map((tag, idx) => (
+                  <div className="pt-2.5 border-t border-neutral-800/80 flex items-center justify-between text-[11px] text-neutral-400 gap-2">
+                    <div className="flex items-center gap-1 overflow-hidden truncate flex-wrap">
+                      {displayTags.slice(0, 3).map((tag, idx) => (
                         <span
                           key={idx}
-                          className="px-1.5 py-0.5 rounded bg-neutral-950 text-neutral-400 text-[10px] border border-neutral-850 truncate max-w-[90px]"
+                          className="px-1.5 py-0.5 rounded bg-neutral-950 text-neutral-300 text-[10px] font-medium border border-neutral-850 truncate max-w-[90px]"
                         >
                           #{tag}
                         </span>
                       ))}
-                      {(entry.tags?.length || 0) > 3 && (
-                        <span className="text-[10px] text-neutral-500">
-                          +{(entry.tags?.length || 0) - 3}
+                      {displayTags.length > 3 && (
+                        <span className="text-[10px] text-neutral-500 font-medium">
+                          +{displayTags.length - 3}
                         </span>
                       )}
                     </div>
@@ -541,7 +998,7 @@ export const MindfulnessJournalView: React.FC<MindfulnessJournalViewProps> = ({
                           handleCopyEntryText(entry);
                         }}
                         className="p-1 rounded-md hover:bg-neutral-800 text-neutral-400 hover:text-white transition-colors cursor-pointer"
-                        title="Copy to clipboard"
+                        title="Copy reflection"
                       >
                         {copiedId === entry.id ? (
                           <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -568,267 +1025,6 @@ export const MindfulnessJournalView: React.FC<MindfulnessJournalViewProps> = ({
           </div>
         )}
       </main>
-
-      {/* MODAL: Full Screen / Floating Entry Editor */}
-      {isEditorOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-950/80 backdrop-blur-md animate-fade-in overflow-y-auto">
-          <div
-            className={`w-full max-w-2xl rounded-3xl p-6 sm:p-7 border shadow-2xl space-y-5 my-8 relative transition-all ${
-              editorModeContext === '420'
-                ? 'bg-neutral-900 border-emerald-500/30'
-                : 'bg-neutral-900 border-amber-500/30'
-            }`}
-          >
-            {/* Editor Header */}
-            <div className="flex items-center justify-between gap-3 border-b border-neutral-800 pb-3.5">
-              <div className="flex items-center gap-2.5">
-                <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm ${
-                    editorModeContext === '420'
-                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                      : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                  }`}
-                >
-                  <Feather className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="font-display font-bold text-base sm:text-lg text-white">
-                    {editingEntryId ? 'Edit Reflection' : 'New Mindfulness Reflection'}
-                  </h3>
-                  <div className="text-[11px] text-neutral-400">
-                    Unified Mindful Journal • Auto-saved locally
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setEditorIsPinned(!editorIsPinned)}
-                  className={`p-2 rounded-xl border transition-colors cursor-pointer ${
-                    editorIsPinned
-                      ? editorModeContext === '420'
-                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                        : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                      : 'bg-neutral-950 text-neutral-400 border-neutral-800 hover:text-white'
-                  }`}
-                  title={editorIsPinned ? 'Unpin reflection' : 'Pin reflection to top'}
-                >
-                  <Pin className={`w-4 h-4 ${editorIsPinned ? 'fill-current' : ''}`} />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setIsEditorOpen(false)}
-                  className="p-2 rounded-xl bg-neutral-950 hover:bg-neutral-800 text-neutral-400 hover:text-white border border-neutral-800 transition-colors cursor-pointer"
-                  title="Close editor"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* Mode context selector */}
-            <div className="flex items-center justify-between gap-3 flex-wrap text-xs">
-              <span className="text-neutral-400 font-medium">Capture Mode Context:</span>
-              <div className="inline-flex rounded-xl bg-neutral-950 p-1 border border-neutral-800">
-                <button
-                  type="button"
-                  onClick={() => setEditorModeContext('1111')}
-                  className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-                    editorModeContext === '1111'
-                      ? 'bg-amber-500 text-neutral-950 shadow-sm'
-                      : 'text-neutral-400 hover:text-neutral-200'
-                  }`}
-                >
-                  ✨ 11:11 Wish Mode
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditorModeContext('420')}
-                  className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-                    editorModeContext === '420'
-                      ? 'bg-emerald-500 text-neutral-950 shadow-sm'
-                      : 'text-neutral-400 hover:text-neutral-200'
-                  }`}
-                >
-                  🌿 4:20 Vibe Mode
-                </button>
-              </div>
-            </div>
-
-            {/* Title Input */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-neutral-300">
-                Title / Focus of this moment:
-              </label>
-              <input
-                type="text"
-                value={editorTitle}
-                onChange={(e) => setEditorTitle(e.target.value)}
-                placeholder="e.g. Afternoon Clarity, Grateful for Sunshine, Releasing Old Pressure..."
-                className={`w-full px-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-white text-sm placeholder:text-neutral-600 focus:outline-none transition-colors ${
-                  editorModeContext === '420'
-                    ? 'focus:border-emerald-500/70'
-                    : 'focus:border-amber-500/70'
-                }`}
-                autoFocus
-              />
-            </div>
-
-            {/* Mood & Vibe Picker Presets + Custom Input */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <label className="font-semibold text-neutral-300">
-                  Select Mood / Vibe (Acts as tag):
-                </label>
-                <span className="text-[11px] text-neutral-500">
-                  Current: <strong className="text-neutral-200">{editorMood}</strong>
-                </span>
-              </div>
-
-              {/* Preset Mood Chips */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {activeMoodPresets.map((preset) => {
-                  const isSelected = editorMood.toLowerCase() === preset.toLowerCase();
-                  return (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => {
-                        setEditorMood(preset);
-                        if (!editorTags.includes(preset)) {
-                          setEditorTags((prev) => [...prev, preset]);
-                        }
-                      }}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-                        isSelected
-                          ? editorModeContext === '420'
-                            ? 'bg-emerald-400 text-neutral-950 border-emerald-400 shadow-sm'
-                            : 'bg-amber-400 text-neutral-950 border-amber-400 shadow-sm'
-                          : 'bg-neutral-950 text-neutral-400 border-neutral-800 hover:text-neutral-200 hover:border-neutral-700'
-                      }`}
-                    >
-                      {preset}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Custom Mood Input */}
-              <div className="flex items-center gap-2 pt-1">
-                <input
-                  type="text"
-                  value={customMoodInput}
-                  onChange={(e) => setCustomMoodInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddCustomMood();
-                    }
-                  }}
-                  placeholder="Or enter a custom feeling / vibe..."
-                  className={`flex-1 px-3 py-1.5 rounded-xl bg-neutral-950 border border-neutral-800 text-xs text-white placeholder:text-neutral-600 focus:outline-none ${
-                    editorModeContext === '420'
-                      ? 'focus:border-emerald-500/60'
-                      : 'focus:border-amber-500/60'
-                  }`}
-                />
-                <button
-                  type="button"
-                  onClick={handleAddCustomMood}
-                  className="px-3 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-750 text-neutral-200 text-xs font-semibold border border-neutral-700 cursor-pointer"
-                >
-                  Set Feeling
-                </button>
-              </div>
-            </div>
-
-            {/* Prompt Inspiration Card for New Entry */}
-            <div className="rounded-2xl bg-neutral-950/80 p-3.5 border border-neutral-800/80 space-y-1.5">
-              <div className="flex items-center justify-between text-[11px] text-neutral-400">
-                <span className="font-semibold flex items-center gap-1">
-                  <Sparkles
-                    className={`w-3.5 h-3.5 ${
-                      editorModeContext === '420' ? 'text-emerald-400' : 'text-amber-400'
-                    }`}
-                  />
-                  <span>Mindfulness Prompt Inspiration:</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setEditorRandomPrompt(getRandomPrompt(editorModeContext).text)
-                  }
-                  className="text-[10px] text-neutral-500 hover:text-neutral-300 underline cursor-pointer"
-                >
-                  Shuffle prompt
-                </button>
-              </div>
-              <p className="text-xs text-neutral-300 italic">"{editorRandomPrompt}"</p>
-              {!editorContent && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditorPromptUsed(editorRandomPrompt);
-                    setEditorContent(`Prompt reflection: ${editorRandomPrompt}\n\n`);
-                  }}
-                  className="text-[10px] font-semibold text-neutral-400 hover:text-white underline cursor-pointer pt-0.5"
-                >
-                  + Insert prompt into text body
-                </button>
-              )}
-            </div>
-
-            {/* Reflection Text Area */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs">
-                <label className="font-semibold text-neutral-300">
-                  Your Reflection & Mindful Thoughts:
-                </label>
-                <span className="text-[11px] text-neutral-500 font-mono">
-                  {editorContent.length} chars •{' '}
-                  {editorContent.trim() ? editorContent.trim().split(/\s+/).length : 0} words
-                </span>
-              </div>
-              <textarea
-                value={editorContent}
-                onChange={(e) => setEditorContent(e.target.value)}
-                placeholder={`What's on your mind right now? (${editorRandomPrompt})`}
-                rows={6}
-                className={`w-full p-4 rounded-2xl bg-neutral-950 border border-neutral-800 text-white text-sm placeholder:text-neutral-600 focus:outline-none transition-colors resize-y leading-relaxed ${
-                  editorModeContext === '420'
-                    ? 'focus:border-emerald-500/70'
-                    : 'focus:border-amber-500/70'
-                }`}
-              />
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex items-center justify-end gap-3 pt-2 border-t border-neutral-800">
-              <button
-                type="button"
-                onClick={() => setIsEditorOpen(false)}
-                className="px-4 py-2.5 rounded-xl bg-neutral-950 hover:bg-neutral-800 text-neutral-400 hover:text-white text-xs font-semibold border border-neutral-800 cursor-pointer transition-colors"
-              >
-                Cancel
-              </button>
-
-              <button
-                type="button"
-                onClick={handleSaveCurrentEntry}
-                className={`px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-lg transition-transform active:scale-95 cursor-pointer text-neutral-950 ${
-                  editorModeContext === '420'
-                    ? 'bg-emerald-400 hover:bg-emerald-300 shadow-emerald-400/20'
-                    : 'bg-amber-400 hover:bg-amber-300 shadow-amber-400/20'
-                }`}
-              >
-                {editingEntryId ? 'Save Changes' : 'Save Reflection'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* MODAL: Delete Confirmation */}
       {deleteConfirmId && (
