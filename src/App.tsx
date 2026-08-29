@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Header } from './components/Header';
 import { Next1111Hero } from './components/Next1111Hero';
 import { UserLocalCard } from './components/UserLocalCard';
+import { JournalLauncherCard } from './components/JournalLauncherCard';
+import { MindfulnessJournalView } from './components/MindfulnessJournalView';
 import { QueuedWishesCard } from './components/QueuedWishesCard';
 import { WorldMapVisualizer } from './components/WorldMapVisualizer';
 import { FullScreenMapView } from './components/FullScreenMapView';
@@ -28,15 +30,16 @@ import {
   isSlotAlreadyNotified,
   markSlotNotified,
 } from './utils/notifications';
-import { CityTimeZone, NotificationPreferences, UserWish, TrackerMode } from './types';
+import { CityTimeZone, NotificationPreferences, UserWish, TrackerMode, JournalEntry } from './types';
 import { APP_VERSION_STRING } from './version';
 
 const STORAGE_KEY_FAVORITES = '1111_favorite_cities';
 const STORAGE_KEY_WISHES = '1111_user_wishes';
 const STORAGE_KEY_MODE = '1111_tracker_mode';
+const STORAGE_KEY_JOURNAL = '1111_mindfulness_journal';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<'dashboard' | 'map' | 'world'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'map' | 'world' | 'journal'>('dashboard');
   const [userTimeZone, setUserTimeZone] = useState<string>('America/Vancouver');
   const [trackerMode, setTrackerMode] = useState<TrackerMode>(() => {
     try {
@@ -69,6 +72,17 @@ export default function App() {
     }
     return [];
   });
+
+  const [journalEntries, setJournalEntries] = useState<JournalEntry[]>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY_JOURNAL);
+      if (stored) return JSON.parse(stored);
+    } catch {
+      // ignore
+    }
+    return [];
+  });
+  const [initialJournalNewEntry, setInitialJournalNewEntry] = useState(false);
 
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const [isWishModalOpen, setIsWishModalOpen] = useState(false);
@@ -191,6 +205,37 @@ export default function App() {
     } catch {
       // ignore
     }
+  };
+
+  const handleSaveJournalEntry = (newOrUpdated: JournalEntry) => {
+    setJournalEntries((prev) => {
+      const idx = prev.findIndex((e) => e.id === newOrUpdated.id);
+      let updated: JournalEntry[];
+      if (idx >= 0) {
+        updated = [...prev];
+        updated[idx] = newOrUpdated;
+      } else {
+        updated = [newOrUpdated, ...prev];
+      }
+      try {
+        localStorage.setItem(STORAGE_KEY_JOURNAL, JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+  };
+
+  const handleDeleteJournalEntry = (id: string) => {
+    setJournalEntries((prev) => {
+      const updated = prev.filter((e) => e.id !== id);
+      try {
+        localStorage.setItem(STORAGE_KEY_JOURNAL, JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
   };
 
   // Synchronize Favorite cities changes to localStorage
@@ -321,6 +366,23 @@ export default function App() {
     );
   }
 
+  // If user opened the Mindfulness Journal page
+  if (currentView === 'journal') {
+    return (
+      <MindfulnessJournalView
+        entries={journalEntries}
+        onSaveEntry={handleSaveJournalEntry}
+        onDeleteEntry={handleDeleteJournalEntry}
+        onBack={() => {
+          setInitialJournalNewEntry(false);
+          setCurrentView('dashboard');
+        }}
+        activeMode={trackerMode}
+        initialNewEntry={initialJournalNewEntry}
+      />
+    );
+  }
+
   // If user opened the full screen map view
   if (currentView === 'map') {
     return (
@@ -374,7 +436,7 @@ export default function App() {
           upcomingSlots={groupedUpcoming}
         />
 
-        {/* 2-Column Responsive Row: User Local (Home City), Queued Wishes & World Map Progression */}
+        {/* 2-Column Responsive Row: User Local (Home City), Journal Launcher, Queued Wishes & World Map Progression */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           <div className="lg:col-span-4 space-y-6">
             <UserLocalCard
@@ -382,6 +444,20 @@ export default function App() {
               userTimeZone={userTimeZone}
               onSelectTimeZone={setUserTimeZone}
               mode={trackerMode}
+            />
+
+            {/* Wish / Vibe Mindfulness Journal Launcher Card */}
+            <JournalLauncherCard
+              entries={journalEntries}
+              mode={trackerMode}
+              onOpenJournal={() => {
+                setInitialJournalNewEntry(false);
+                setCurrentView('journal');
+              }}
+              onNewEntry={() => {
+                setInitialJournalNewEntry(true);
+                setCurrentView('journal');
+              }}
             />
 
             {/* Queued Wishes (displayed only when actual wishes are saved & upcoming) */}

@@ -389,31 +389,25 @@ export const Next1111Hero: React.FC<Next1111HeroProps> = ({
 
         {/* Action Buttons */}
         <div className="pt-4 flex items-center justify-center gap-3 flex-wrap">
-          <button
-            id="btn-hero-wish"
-            onClick={() => {
-              handlePlaySound();
-              onOpenWishModal(currentSlot.cityNames[0]);
-            }}
-            className={`px-6 py-3 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg transition-transform active:scale-95 cursor-pointer text-neutral-950 ${
-              isPastSlot
-                ? 'bg-blue-400 hover:bg-blue-300 shadow-blue-400/20'
-                : is420
-                ? 'bg-emerald-500 hover:bg-emerald-400 shadow-emerald-500/20'
-                : 'bg-amber-500 hover:bg-amber-400 shadow-amber-500/20'
-            }`}
-          >
-            <Sparkles className="w-4 h-4 text-neutral-950" />
-            <span>
-              {isPastSlot
-                ? is420
-                  ? 'Record 4:20 Note'
-                  : 'Make 11:11 Wish'
-                : is420
-                ? 'Catch 4:20 Vibe'
-                : 'Make 11:11 Wish'}
-            </span>
-          </button>
+          {!isPastSlot && (
+            <button
+              id="btn-hero-wish"
+              onClick={() => {
+                handlePlaySound();
+                onOpenWishModal(currentSlot.cityNames[0]);
+              }}
+              className={`px-6 py-3 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg transition-transform active:scale-95 cursor-pointer text-neutral-950 ${
+                is420
+                  ? 'bg-emerald-500 hover:bg-emerald-400 shadow-emerald-500/20'
+                  : 'bg-amber-500 hover:bg-amber-400 shadow-amber-500/20'
+              }`}
+            >
+              <Sparkles className="w-4 h-4 text-neutral-950" />
+              <span>
+                {is420 ? 'Catch 4:20 Vibe' : 'Make 11:11 Wish'}
+              </span>
+            </button>
+          )}
 
           <button
             id="btn-hero-chime"

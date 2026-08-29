@@ -70,6 +70,26 @@ export interface UserWish {
   mode?: TrackerMode;
 }
 
+export interface JournalEntry {
+  id: string;
+  title: string;
+  content: string;
+  mood: string; // e.g. "Grateful", "Peaceful", "Inspired", "Chill", or custom
+  tags: string[]; // preset mood tags or custom tags
+  createdAt: number; // timestamp
+  updatedAt: number; // timestamp
+  modeContext: TrackerMode; // '1111' or '420'
+  promptUsed?: string; // Optional mindfulness prompt that inspired this entry
+  isPinned?: boolean;
+}
+
+export interface MindfulnessPrompt {
+  id: string;
+  text: string;
+  category: 'intention' | 'presence' | 'gratitude' | 'grounding' | 'creativity' | 'reflection';
+  modeBias?: TrackerMode | 'all';
+}
+
 export type WidgetStyle = 'material_you' | 'compact_pill' | 'rich_card' | 'minimal_glance';
 export type WidgetTheme = 'amber' | 'indigo' | 'emerald' | 'sunset' | 'midnight';
 
