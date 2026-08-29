@@ -359,7 +359,9 @@ export function formatOccurrenceNotification(
   userLocalTimeFormatted: string,
   notifyMinutesBefore: number = 0,
   mode: TrackerMode = '1111',
-  wishes: UserWish[] = []
+  wishes: UserWish[] = [],
+  isTest: boolean = false,
+  eventTimeMs?: number
 ): { title: string; body: string } {
   const is420 = mode === '420';
   const label = is420 ? '4:20' : '11:11';
@@ -379,43 +381,39 @@ export function formatOccurrenceNotification(
   let title = '';
   let body = '';
 
+  const cityDisplay = count > 1
+    ? `${primaryCity.name} & ${cities[1].name}`
+    : `${primaryCity.name}, ${primaryCity.country}`;
+
   if (notifyMinutesBefore > 0) {
-    if (count === 1) {
-      title = `⏳ ${label} in ${primaryCity.name} in ${notifyMinutesBefore} min!`;
-      body = `${label} ${period} is approaching in ${primaryCity.name}, ${primaryCity.country} at ${userLocalTimeFormatted} locally.`;
-    } else if (count === 2) {
-      title = `⏳ ${label} in ${primaryCity.name} & ${cities[1].name} in ${notifyMinutesBefore} min!`;
-      body = `${label} is approaching simultaneously in ${primaryCity.name} and ${cities[1].name} at ${userLocalTimeFormatted} locally.`;
-    } else {
-      title = `⏳ ${label} in ${primaryCity.name}, ${cities[1].name} & ${count - 2} more in ${notifyMinutesBefore} min!`;
-      const cityListStr = cities.slice(0, 4).map((c) => c.name).join(', ') + (count > 4 ? ` +${count - 4} more` : '');
-      body = `${label} is approaching across ${cityListStr} at ${userLocalTimeFormatted} locally.`;
-    }
+    title = `⏳ ${label} in ${cityDisplay} in ${notifyMinutesBefore} min!`;
+    body = `${label} ${period} is approaching at ${userLocalTimeFormatted} locally.`;
   } else {
-    if (count === 1) {
-      title = `${icon} It's ${label} ${period} in ${primaryCity.name}!`;
-      body = `${actionText} ${label} ${period} has arrived in ${primaryCity.name}, ${primaryCity.country} (${userLocalTimeFormatted} locally).`;
-    } else if (count === 2) {
-      title = `${icon} It's ${label} in ${primaryCity.name} & ${cities[1].name}!`;
-      body = `${actionText} ${label} strikes simultaneously in ${primaryCity.name} and ${cities[1].name} (${userLocalTimeFormatted} locally).`;
-    } else {
-      title = `${icon} It's ${label} in ${primaryCity.name}, ${cities[1].name} & ${count - 2} other places!`;
-      const cityListStr = cities.slice(0, 4).map((c) => c.name).join(', ') + (count > 4 ? ` +${count - 4} more` : '');
-      body = `${actionText} ${label} strikes across ${cityListStr} (${userLocalTimeFormatted} locally).`;
-    }
+    title = `${icon} It's ${label} in ${cityDisplay} (${userLocalTimeFormatted} locally)!`;
+    body = `${actionText} It's time to pause and reflect.`;
   }
 
   // Find if there is a matching wish for any of these cities and this period/mode
+  const comparisonTimeMs = eventTimeMs ?? Date.now();
   const matchedWish = wishes.find(
-    (w) =>
-      (w.mode || '1111') === mode &&
-      w.period === period &&
-      cities.some((c) => c.name.toLowerCase() === w.cityName.toLowerCase())
+    (w) => {
+      // Ensure the wish is actually meant for right now (within a 5-minute window)
+      // This guarantees it will never go off prematurely or hours late
+      const isTimeMatch = isTest || Math.abs(w.targetTimestamp - comparisonTimeMs) <= 5 * 60 * 1000;
+      
+      return (
+        isTimeMatch &&
+        (w.mode || '1111') === mode &&
+        w.period === period &&
+        (w.cityName.toLowerCase() === 'the world' ||
+          cities.some((c) => c.name.toLowerCase() === w.cityName.toLowerCase()))
+      );
+    }
   );
 
   if (matchedWish && matchedWish.wishText) {
     const intentionLabel = is420 ? 'Your intention' : 'Your wish';
-    body += `\n💭 ${intentionLabel}: "${matchedWish.wishText}"`;
+    body = `💭 ${intentionLabel}: "${matchedWish.wishText}"`;
   }
 
   return { title, body };
@@ -557,7 +555,9 @@ export async function syncScheduled1111Notifications(
         userTimeFormatted,
         prefs.notifyMinutesBefore,
         slotData.mode,
-        wishes
+        wishes,
+        false, // not a test
+        slotData.targetTimeMs
       );
 
       // Use deterministic ID based on timestamp and mode to avoid duplicate/stacked alarms
@@ -617,7 +617,7 @@ export async function send1111Notification(
   wishes: UserWish[] = []
 ): Promise<void> {
   const cities = Array.isArray(cityOrCities) ? cityOrCities : [cityOrCities];
-  const { title, body } = formatOccurrenceNotification(cities, period, userLocalTimeFormatted, 0, mode, wishes);
+  const { title, body } = formatOccurrenceNotification(cities, period, userLocalTimeFormatted, 0, mode, wishes, options?.isTest);
 
   const { isNative, LocalNotifications } = await getCapacitorPlugins();
 

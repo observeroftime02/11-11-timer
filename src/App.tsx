@@ -187,6 +187,31 @@ export default function App() {
       });
   }, [wishes, currentTime]);
 
+  // Cleanup past wishes from state and storage
+  useEffect(() => {
+    const nowMs = currentTime.getTime();
+    let hasChanges = false;
+
+    const activeWishes = wishes.filter((wish) => {
+      if (wish.targetTimestamp) {
+        // Keep it if it's in the future or within a 5-minute grace period of the past
+        // This ensures the notification has plenty of time to read it before it gets cleared out.
+        if (wish.targetTimestamp < nowMs - 5 * 60 * 1000) {
+          hasChanges = true;
+          return false;
+        }
+      }
+      return true;
+    });
+
+    if (hasChanges) {
+      setWishes(activeWishes);
+      try {
+        localStorage.setItem(STORAGE_KEY_WISHES, JSON.stringify(activeWishes));
+      } catch {}
+    }
+  }, [currentTime, wishes]);
+
   const handleAddWish = (newWish: UserWish) => {
     const updated = [newWish, ...wishes];
     setWishes(updated);
@@ -361,6 +386,7 @@ export default function App() {
           onUpdatePrefs={handleUpdateNotificationPrefs}
           currentNextCity={primary.city}
           activeMode={trackerMode}
+          wishes={wishes}
         />
       </>
     );
@@ -564,6 +590,7 @@ export default function App() {
         onUpdatePrefs={handleUpdateNotificationPrefs}
         currentNextCity={primary.city}
         activeMode={trackerMode}
+        wishes={wishes}
       />
 
       <PrivacyPolicyModal

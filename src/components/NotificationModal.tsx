@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Bell, Volume2, Check, Sparkles, Sliders } from 'lucide-react';
-import { NotificationPreferences, CityTimeZone, TrackerMode } from '../types';
+import { NotificationPreferences, CityTimeZone, TrackerMode, UserWish } from '../types';
 import {
   requestNotificationPermission,
   getNotificationPermissionStatus,
@@ -8,6 +8,7 @@ import {
   synthesizeChillTone,
   send1111Notification,
 } from '../utils/notifications';
+import { getNextTargetForCity } from '../utils/timeEngine';
 
 interface NotificationModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ interface NotificationModalProps {
   onUpdatePrefs: (newPrefs: NotificationPreferences) => void;
   currentNextCity: CityTimeZone;
   activeMode?: TrackerMode;
+  wishes?: UserWish[];
 }
 
 export const NotificationModal: React.FC<NotificationModalProps> = ({
@@ -25,6 +27,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
   onUpdatePrefs,
   currentNextCity,
   activeMode = '1111',
+  wishes = [],
 }) => {
   const [permState, setPermState] = useState<'granted' | 'denied' | 'prompt' | 'unsupported'>('prompt');
   const [testSent, setTestSent] = useState(false);
@@ -58,11 +61,12 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
 
   const handleTestNotification = async () => {
     const modeToUse: TrackerMode = activeMode === '420' ? '420' : '1111';
-    await send1111Notification(currentNextCity, 'AM', '3:11 PM', modeToUse, {
+    const nextEv = getNextTargetForCity(currentNextCity, modeToUse, new Date());
+    await send1111Notification(currentNextCity, nextEv.period, nextEv.localTimeFormatted, modeToUse, {
       playSound: prefs.soundEnabled,
       isTest: true,
       dedupeKey: `test-${modeToUse}-${Date.now()}`,
-    });
+    }, wishes);
     setTestSent(true);
     setTimeout(() => setTestSent(false), 3500);
   };

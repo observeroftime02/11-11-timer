@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import confetti from 'canvas-confetti';
 import { X, Sparkles, Trash2, Heart, Clock } from 'lucide-react';
 import { UserWish, TrackerMode } from '../types';
-import { playChimeSound, synthesizeChillTone } from '../utils/notifications';
 import { WORLD_CITIES } from '../data/timezones';
 import { getNextTargetForCity, getNextTargetWorldwide } from '../utils/timeEngine';
 
@@ -57,7 +56,6 @@ export const MakeAWishModal: React.FC<MakeAWishModalProps> = ({
           origin: { y: 0.6 },
           colors: ['#34d399', '#10b981', '#059669', '#a7f3d0', '#6ee7b7', '#fde047'],
         });
-        synthesizeChillTone();
       } else {
         confetti({
           particleCount: 80,
@@ -65,7 +63,6 @@ export const MakeAWishModal: React.FC<MakeAWishModalProps> = ({
           origin: { y: 0.6 },
           colors: ['#fbbf24', '#fef08a', '#60a5fa', '#a78bfa', '#f472b6'],
         });
-        playChimeSound();
       }
     }
   }, [isOpen, is420]);
