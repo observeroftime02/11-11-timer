@@ -111,7 +111,8 @@ export const WorldTimeline: React.FC<WorldTimelineProps> = ({
             return (
               <div
                 key={slot.id || index}
-                className="py-4 hover:bg-neutral-850/40 px-2 sm:px-3 rounded-2xl transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                onClick={() => onSelectCity(slot.primaryCity)}
+                className="py-4 hover:bg-neutral-850/40 px-2 sm:px-3 rounded-2xl transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 cursor-pointer"
               >
                 <div className="space-y-1 max-w-xl">
                   <div className="font-semibold text-sm sm:text-base text-white leading-snug">

@@ -327,28 +327,28 @@ export const MindfulnessJournalView: React.FC<MindfulnessJournalViewProps> = ({
 
     return (
       <div
-        className={`min-h-screen bg-neutral-950 text-neutral-100 flex flex-col ${
+        className={`min-h-[100dvh] bg-neutral-950 text-neutral-100 flex flex-col ${
           isEditor420
             ? 'selection:bg-emerald-500/30 selection:text-emerald-200'
             : 'selection:bg-amber-500/30 selection:text-amber-200'
         }`}
       >
         {/* Dedicated Editor Navigation Top Bar */}
-        <header className="sticky top-0 z-40 backdrop-blur-md bg-neutral-950/90 border-b border-neutral-800/90 px-4 lg:px-8 py-3.5 transition-colors">
-          <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
+        <header className="relative sm:sticky sm:top-0 z-40 backdrop-blur-md bg-neutral-950/90 border-b border-neutral-800/90 px-3 sm:px-4 lg:px-8 py-2.5 sm:py-3 transition-colors">
+          <div className="max-w-5xl mx-auto flex items-center justify-between gap-2 sm:gap-3">
             {/* Left Back / Cancel button */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               <button
                 id="btn-editor-back-to-list"
                 onClick={() => setViewMode('list')}
-                className="px-3 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-850 text-neutral-300 hover:text-white border border-neutral-800 transition-colors cursor-pointer flex items-center gap-2 text-xs sm:text-sm font-semibold"
+                className="px-2.5 sm:px-3 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-850 text-neutral-300 hover:text-white border border-neutral-800 transition-colors cursor-pointer flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-semibold"
                 title="Return to Journal List"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>Journal Gallery</span>
+                <span className="hidden sm:inline">Journal Gallery</span>
               </button>
 
-              <div className="hidden sm:flex items-center gap-2 text-xs text-neutral-400">
+              <div className="hidden md:flex items-center gap-2 text-xs text-neutral-400">
                 <span className="text-neutral-700">/</span>
                 <span className="font-medium">
                   {editingEntryId ? 'Edit Reflection' : 'New Reflection'}
@@ -357,37 +357,39 @@ export const MindfulnessJournalView: React.FC<MindfulnessJournalViewProps> = ({
             </div>
 
             {/* Center Mode Switcher */}
-            <div className="inline-flex rounded-xl bg-neutral-900 p-1 border border-neutral-800 text-xs">
+            <div className="inline-flex rounded-xl bg-neutral-900 p-1 border border-neutral-800 text-[10px] sm:text-xs">
               <button
                 type="button"
                 onClick={() => setEditorModeContext('1111')}
-                className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                className={`px-2 sm:px-3 py-1 sm:py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 ${
                   editorModeContext === '1111'
                     ? 'bg-amber-400 text-neutral-950 shadow-sm'
                     : 'text-neutral-400 hover:text-neutral-200'
                 }`}
               >
-                ✨ 11:11 Wish
+                <span>✨</span>
+                <span>11:11 <span className="hidden sm:inline">Wish</span></span>
               </button>
               <button
                 type="button"
                 onClick={() => setEditorModeContext('420')}
-                className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                className={`px-2 sm:px-3 py-1 sm:py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 ${
                   editorModeContext === '420'
                     ? 'bg-emerald-400 text-neutral-950 shadow-sm'
                     : 'text-neutral-400 hover:text-neutral-200'
                 }`}
               >
-                🌿 4:20 Vibe
+                <span>🌿</span>
+                <span>4:20 <span className="hidden sm:inline">Vibe</span></span>
               </button>
             </div>
 
             {/* Right Quick Actions & Save Button */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setEditorIsPinned(!editorIsPinned)}
-                className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+                className={`p-1.5 sm:p-2 rounded-xl border transition-colors cursor-pointer ${
                   editorIsPinned
                     ? isEditor420
                       ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
@@ -396,20 +398,21 @@ export const MindfulnessJournalView: React.FC<MindfulnessJournalViewProps> = ({
                 }`}
                 title={editorIsPinned ? 'Pinned to top' : 'Pin reflection'}
               >
-                <Pin className={`w-4 h-4 ${editorIsPinned ? 'fill-current' : ''}`} />
+                <Pin className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${editorIsPinned ? 'fill-current' : ''}`} />
               </button>
 
               <button
                 id="btn-editor-save-entry"
                 onClick={handleSaveCurrentEntry}
-                className={`px-4 sm:px-6 py-2 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg transition-transform active:scale-95 cursor-pointer text-neutral-950 ${
+                className={`px-3 sm:px-6 py-1.5 sm:py-2 rounded-xl font-bold text-[11px] sm:text-sm flex items-center gap-1.5 sm:gap-2 shadow-lg transition-transform active:scale-95 cursor-pointer text-neutral-950 ${
                   isEditor420
                     ? 'bg-emerald-400 hover:bg-emerald-300 shadow-emerald-400/20'
                     : 'bg-amber-400 hover:bg-amber-300 shadow-amber-400/20'
                 }`}
               >
-                <CheckCircle2 className="w-4 h-4 text-neutral-950" />
-                <span>{editingEntryId ? 'Save Changes' : 'Save Reflection'}</span>
+                <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-950" />
+                <span className="hidden sm:inline">{editingEntryId ? 'Save Changes' : 'Save Reflection'}</span>
+                <span className="sm:hidden">Save</span>
               </button>
             </div>
           </div>
@@ -654,7 +657,7 @@ export const MindfulnessJournalView: React.FC<MindfulnessJournalViewProps> = ({
                 value={editorContent}
                 onChange={(e) => setEditorContent(e.target.value)}
                 placeholder={editorPlaceholder}
-                className={`w-full flex-1 min-h-[380px] sm:min-h-[460px] md:min-h-[520px] p-6 rounded-3xl bg-neutral-900/70 border border-neutral-800 text-neutral-100 text-base sm:text-lg placeholder:text-neutral-600 focus:outline-none transition-colors leading-relaxed resize-y font-sans shadow-inner ${
+                className={`w-full flex-1 min-h-[150px] sm:min-h-[380px] md:min-h-[520px] p-6 rounded-3xl bg-neutral-900/70 border border-neutral-800 text-neutral-100 text-base sm:text-lg placeholder:text-neutral-600 focus:outline-none transition-colors leading-relaxed resize-y font-sans shadow-inner ${
                   isEditor420
                     ? 'focus:border-emerald-500/60'
                     : 'focus:border-amber-500/60'
