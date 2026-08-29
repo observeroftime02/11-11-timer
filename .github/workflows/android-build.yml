@@ -11,10 +11,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   build-apk:
     name: Build & Package Android Debug APK
     runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, 'skip ci') && !contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]') && !contains(github.event.head_commit.message, 'ci skip')"
 
     steps:
       - name: Checkout repository
@@ -42,6 +46,14 @@ jobs:
             npm install
           fi
 
+      - name: Read App Version
+        id: app-version
+        run: |
+          VERSION=$(node -p "try { require('./package.json').version } catch(e) { '0.1.0' }")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v${VERSION}-build.${{ github.run_number }}" >> $GITHUB_OUTPUT
+          echo "Detected App Version: v$VERSION (Tag: v${VERSION}-build.${{ github.run_number }})"
+
       - name: Typecheck & Build Web Assets
         run: |
           npm run lint
@@ -63,13 +75,15 @@ jobs:
         id: apk-prep
         run: |
           mkdir -p output-apk
+          VERSION="${{ steps.app-version.outputs.version }}"
           APK_SRC="android/app/build/outputs/apk/debug/app-debug.apk"
-          APK_DEST="output-apk/Next1111-WorldClock-debug-build-${{ github.run_number }}.apk"
+          APK_DEST="output-apk/Next1111-WorldClock-v${VERSION}-build-${{ github.run_number }}.apk"
           
           if [ -f "$APK_SRC" ]; then
             cp "$APK_SRC" "$APK_DEST"
             APK_SIZE=$(du -h "$APK_DEST" | cut -f1)
             echo "apk_path=$APK_DEST" >> $GITHUB_OUTPUT
+            echo "apk_filename=Next1111-WorldClock-v${VERSION}-build-${{ github.run_number }}.apk" >> $GITHUB_OUTPUT
             echo "apk_size=$APK_SIZE" >> $GITHUB_OUTPUT
             echo "Found APK at $APK_SRC, copied to $APK_DEST (Size: $APK_SIZE)"
           else
@@ -80,20 +94,47 @@ jobs:
       - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Next1111-Debug-APK-build-${{ github.run_number }}
+          name: Next1111-Debug-APK-v${{ steps.app-version.outputs.version }}-build-${{ github.run_number }}
           path: output-apk/*.apk
           retention-days: 30
 
+      - name: Publish Direct GitHub Release with APK
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.app-version.outputs.tag }}
+          name: "Next 11:11 & 4:20 World Clock v${{ steps.app-version.outputs.version }} (Build #${{ github.run_number }})"
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            ${{ steps.apk-prep.outputs.apk_path }}
+          body: |
+            ### 📱 Next 11:11 & 4:20 World Clock — Build #${{ github.run_number }}
+            
+            **Direct Download:** [`${{ steps.apk-prep.outputs.apk_filename }}`](${{ steps.apk-prep.outputs.apk_path }}) (Size: `${{ steps.apk-prep.outputs.apk_size }}`)
+
+            Download and open the `.apk` file below on your Android device to install or update the app.
+
+            #### 🌟 What's Included in v${{ steps.app-version.outputs.version }}:
+            - 🌍 **Global Timezone Synchronizer**: Real-time 11:11 and 4:20 countdowns across 140+ world cities
+            - 🔔 **Chime & Notification Alerts**: Crystal 528Hz & Mellow 216Hz local audio chimes
+            - 📱 **6 Native Android Widgets**: 1x4 Compact, 2x2 Square Dial, and 2x4 Medium Cards for both 11:11 and 4:20
+            - 💫 **Local Wish Journal**: Private offline intention storage
+
       - name: Generate Action Summary
         run: |
-          echo "## 📱 Android Debug Build Complete!" >> $GITHUB_STEP_SUMMARY
+          echo "## 📱 Android Build & Release Published!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
           echo "| :--- | :--- |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Status** | ✅ Succeeded |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Status** | ✅ Succeeded & Published to Releases |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Version** | \`v${{ steps.app-version.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Release Tag** | \`${{ steps.app-version.outputs.tag }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **Build Run** | #${{ github.run_number }} |" >> $GITHUB_STEP_SUMMARY
           echo "| **Commit** | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| **File Size** | ${{ steps.apk-prep.outputs.apk_size }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Artifact** | \`Next1111-WorldClock-debug-build-${{ github.run_number }}.apk\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **APK File** | \`${{ steps.apk-prep.outputs.apk_filename }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "You can download the APK directly from the **Artifacts** section at the top of this run page." >> $GITHUB_STEP_SUMMARY
+          echo "🚀 **The APK has been attached directly to the GitHub Release!** You can download it directly from your repository's **Releases** tab." >> $GITHUB_STEP_SUMMARY
+

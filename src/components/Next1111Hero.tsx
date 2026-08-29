@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Volume2, Smartphone } from 'lucide-react';
+import { Sparkles, Volume2 } from 'lucide-react';
 import { GroupedMomentSlot, CityTimeZone, TrackerMode } from '../types';
 import { formatCountdownHuman } from '../utils/timeEngine';
 import { playChimeSound } from '../utils/notifications';
@@ -9,7 +9,6 @@ interface Next1111HeroProps {
   activeNow: CityTimeZone[];
   userTimeZone: string;
   onOpenWishModal: (cityName?: string) => void;
-  onOpenWidgetModal?: () => void;
   mode?: TrackerMode;
 }
 
@@ -18,7 +17,6 @@ export const Next1111Hero: React.FC<Next1111HeroProps> = ({
   activeNow,
   userTimeZone,
   onOpenWishModal,
-  onOpenWidgetModal,
   mode = '1111',
 }) => {
   const is420 = mode === '420';
@@ -155,7 +153,7 @@ export const Next1111Hero: React.FC<Next1111HeroProps> = ({
               handlePlaySound();
               onOpenWishModal(slot.cityNames[0]);
             }}
-            className={`px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg transition-transform active:scale-95 cursor-pointer text-neutral-950 ${
+            className={`px-6 py-3 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 shadow-lg transition-transform active:scale-95 cursor-pointer text-neutral-950 ${
               is420
                 ? 'bg-emerald-500 hover:bg-emerald-400 shadow-emerald-500/20'
                 : 'bg-amber-500 hover:bg-amber-400 shadow-amber-500/20'
@@ -168,23 +166,11 @@ export const Next1111Hero: React.FC<Next1111HeroProps> = ({
           <button
             id="btn-hero-chime"
             onClick={handlePlaySound}
-            className="px-4 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-750 text-neutral-200 hover:text-white text-xs sm:text-sm font-medium border border-neutral-700 flex items-center gap-2 transition-colors cursor-pointer"
+            className="px-5 py-3 rounded-xl bg-neutral-800 hover:bg-neutral-750 text-neutral-200 hover:text-white text-xs sm:text-sm font-medium border border-neutral-700 flex items-center gap-2 transition-colors cursor-pointer"
           >
             <Volume2 className={`w-4 h-4 ${is420 ? 'text-emerald-400' : 'text-amber-400'}`} />
             <span>{is420 ? 'Play 4:20 Tone' : 'Play Crystal Chime'}</span>
           </button>
-
-          {onOpenWidgetModal && (
-            <button
-              id="btn-hero-widgets"
-              onClick={onOpenWidgetModal}
-              className="px-4 py-2.5 rounded-xl bg-neutral-900/90 hover:bg-neutral-800 text-neutral-300 hover:text-white text-xs sm:text-sm font-medium border border-neutral-800 hover:border-neutral-700 flex items-center gap-2 transition-all cursor-pointer shadow-sm"
-              title="Preview Android Home Screen Widgets"
-            >
-              <Smartphone className={`w-4 h-4 ${is420 ? 'text-emerald-400' : 'text-amber-400'}`} />
-              <span>Android Widgets</span>
-            </button>
-          )}
         </div>
       </div>
     </section>

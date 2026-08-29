@@ -10,7 +10,6 @@ import { WorldDirectoryView } from './components/WorldDirectoryView';
 import { MakeAWishModal } from './components/MakeAWishModal';
 import { NotificationModal } from './components/NotificationModal';
 import { PrivacyPolicyModal } from './components/PrivacyPolicyModal';
-import { AndroidWidgetShowcase } from './components/AndroidWidgetShowcase';
 import { WORLD_CITIES } from './data/timezones';
 import {
   getNextTargetWorldwide,
@@ -30,6 +29,7 @@ import {
   markSlotNotified,
 } from './utils/notifications';
 import { CityTimeZone, NotificationPreferences, UserWish, TrackerMode } from './types';
+import { APP_VERSION_STRING } from './version';
 
 const STORAGE_KEY_FAVORITES = '1111_favorite_cities';
 const STORAGE_KEY_WISHES = '1111_user_wishes';
@@ -73,7 +73,6 @@ export default function App() {
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const [isWishModalOpen, setIsWishModalOpen] = useState(false);
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
-  const [isWidgetModalOpen, setIsWidgetModalOpen] = useState(false);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [wishCityContext, setWishCityContext] = useState<string | undefined>();
 
@@ -369,7 +368,6 @@ export default function App() {
           activeNow={activeNow}
           userTimeZone={userTimeZone}
           onOpenWishModal={handleOpenWishModalForCity}
-          onOpenWidgetModal={() => setIsWidgetModalOpen(true)}
           mode={trackerMode}
         />
 
@@ -443,7 +441,7 @@ export default function App() {
             </span>
           </div>
 
-          <div className="flex items-center gap-3 text-[11px] text-neutral-500">
+          <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 text-[11px] text-neutral-500">
             <span>
               Next {is420 ? '4:20' : '11:11'} World Clock • Real-time IANA synchronization
             </span>
@@ -457,6 +455,14 @@ export default function App() {
             >
               Privacy Policy
             </button>
+            <span>•</span>
+            <span
+              id="footer-app-version"
+              className="px-2 py-0.5 rounded-md bg-neutral-900 text-neutral-400 text-[10px] font-mono border border-neutral-800"
+              title="Semantic App Version"
+            >
+              {APP_VERSION_STRING}
+            </span>
           </div>
         </div>
       </footer>
@@ -479,18 +485,7 @@ export default function App() {
         onUpdatePrefs={handleUpdateNotificationPrefs}
         currentNextCity={primary.city}
         activeMode={trackerMode}
-        onOpenWidgets={() => setIsWidgetModalOpen(true)}
       />
-
-      {isWidgetModalOpen && (
-        <AndroidWidgetShowcase
-          nextEvent={primary}
-          upcomingList={groupedUpcoming.map((slot) => slot.cities[0])}
-          userTimeZone={userTimeZone}
-          onClose={() => setIsWidgetModalOpen(false)}
-          activeMode={trackerMode}
-        />
-      )}
 
       <PrivacyPolicyModal
         isOpen={isPrivacyModalOpen}
