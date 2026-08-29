@@ -7,14 +7,10 @@ import {
   Clock,
   Sparkles,
   ArrowUpDown,
-  Compass,
-  MapPin,
-  Flame,
-  Check,
 } from 'lucide-react';
-import { CityTimeZone, Next1111Event } from '../types';
+import { CityTimeZone, TrackerMode } from '../types';
 import {
-  getNext1111ForCity,
+  getNextTargetForCity,
   formatCountdownHuman,
   formatCurrentTzTime12,
   formatCurrentTzTime,
@@ -28,6 +24,7 @@ interface WorldDirectoryViewProps {
   onToggleFavorite: (cityId: string) => void;
   onSelectCityForWish: (cityName: string) => void;
   onBack: () => void;
+  initialMode?: TrackerMode;
 }
 
 type SortOption = 'countdown' | 'name' | 'offset' | 'localTime';
@@ -40,7 +37,11 @@ export const WorldDirectoryView: React.FC<WorldDirectoryViewProps> = ({
   onToggleFavorite,
   onSelectCityForWish,
   onBack,
+  initialMode = '1111',
 }) => {
+  const [activeMode, setActiveMode] = useState<TrackerMode>(initialMode);
+  const is420 = activeMode === '420';
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRegion, setSelectedRegion] = useState<string>('All');
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
@@ -49,10 +50,10 @@ export const WorldDirectoryView: React.FC<WorldDirectoryViewProps> = ({
 
   const regions = ['All', 'Americas', 'Europe', 'Asia', 'Oceania', 'Pacific', 'Africa', 'Antarctica'];
 
-  // Compute live 11:11 status & countdown for all 92 cities
+  // Compute live 11:11 or 4:20 status & countdown for all 92 cities
   const cityEvents = useMemo(() => {
     return cities.map((city) => {
-      const nextEvent = getNext1111ForCity(city, currentTime, userTimeZone);
+      const nextEvent = getNextTargetForCity(city, activeMode, currentTime, userTimeZone);
       const isFav = favoriteIds.includes(city.id);
 
       // Parse numerical UTC offset for sorting (e.g. "UTC-7" -> -7, "UTC+5:30" -> 5.5)
@@ -78,7 +79,7 @@ export const WorldDirectoryView: React.FC<WorldDirectoryViewProps> = ({
             : formatCurrentTzTime(currentTime, city.timeZone),
       };
     });
-  }, [cities, currentTime, userTimeZone, favoriteIds, timeFormat]);
+  }, [cities, currentTime, userTimeZone, favoriteIds, timeFormat, activeMode]);
 
   // Filter & Sort
   const processedCities = useMemo(() => {
@@ -124,7 +125,7 @@ export const WorldDirectoryView: React.FC<WorldDirectoryViewProps> = ({
     <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col selection:bg-amber-500/30 selection:text-amber-200">
       {/* Top Header Bar */}
       <header className="sticky top-0 z-30 backdrop-blur-md bg-neutral-950/90 border-b border-neutral-800/80 px-4 lg:px-8 py-3.5">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
           <div className="flex items-center gap-3">
             <button
               id="btn-world-back"
@@ -135,10 +136,16 @@ export const WorldDirectoryView: React.FC<WorldDirectoryViewProps> = ({
               <span>Back</span>
             </button>
 
-            <div className="h-5 w-px bg-neutral-800" />
+            <div className="h-5 w-px bg-neutral-800 hidden sm:block" />
 
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-400 flex items-center justify-center">
+              <div
+                className={`w-8 h-8 rounded-xl border flex items-center justify-center ${
+                  is420
+                    ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400'
+                    : 'bg-amber-500/20 border-amber-500/30 text-amber-400'
+                }`}
+              >
                 <Globe className="w-4 h-4" />
               </div>
               <div>
@@ -146,20 +153,50 @@ export const WorldDirectoryView: React.FC<WorldDirectoryViewProps> = ({
                   World Cities Directory
                 </h1>
                 <p className="text-[11px] text-neutral-400">
-                  Live clocks, time zones, and 11:11 countdowns for all {cities.length} cities
+                  Tracking {cities.length} global locations for {is420 ? '4:20' : '11:11'}
                 </p>
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Mode Switcher Tabs */}
+            <div className="inline-flex rounded-xl bg-neutral-900 border border-neutral-800 p-0.5 text-xs font-semibold">
+              <button
+                id="world-dir-mode-1111"
+                onClick={() => setActiveMode('1111')}
+                className={`px-3 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                  !is420
+                    ? 'bg-amber-400 text-neutral-950 font-bold shadow-sm'
+                    : 'text-neutral-400 hover:text-neutral-200'
+                }`}
+              >
+                <span>✨</span>
+                <span>11:11</span>
+              </button>
+              <button
+                id="world-dir-mode-420"
+                onClick={() => setActiveMode('420')}
+                className={`px-3 py-1 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                  is420
+                    ? 'bg-emerald-400 text-neutral-950 font-bold shadow-sm'
+                    : 'text-neutral-400 hover:text-neutral-200'
+                }`}
+              >
+                <span>🌿</span>
+                <span>4:20</span>
+              </button>
+            </div>
+
             {/* 12h / 24h toggle */}
             <div className="inline-flex rounded-xl bg-neutral-900 border border-neutral-800 p-0.5 text-[11px] font-mono">
               <button
                 onClick={() => setTimeFormat('12h')}
-                className={`px-2 py-1 rounded-lg transition-all ${
+                className={`px-2 py-1 rounded-lg transition-all cursor-pointer ${
                   timeFormat === '12h'
-                    ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30'
+                    ? is420
+                      ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30'
+                      : 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30'
                     : 'text-neutral-400 hover:text-neutral-200'
                 }`}
               >
@@ -167,9 +204,11 @@ export const WorldDirectoryView: React.FC<WorldDirectoryViewProps> = ({
               </button>
               <button
                 onClick={() => setTimeFormat('24h')}
-                className={`px-2 py-1 rounded-lg transition-all ${
+                className={`px-2 py-1 rounded-lg transition-all cursor-pointer ${
                   timeFormat === '24h'
-                    ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30'
+                    ? is420
+                      ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30'
+                      : 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30'
                     : 'text-neutral-400 hover:text-neutral-200'
                 }`}
               >
@@ -191,16 +230,24 @@ export const WorldDirectoryView: React.FC<WorldDirectoryViewProps> = ({
                 {cities.length} Locations
               </div>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-neutral-800/80 border border-neutral-700/60 flex items-center justify-center text-amber-400">
+            <div
+              className={`w-10 h-10 rounded-xl bg-neutral-800/80 border border-neutral-700/60 flex items-center justify-center ${
+                is420 ? 'text-emerald-400' : 'text-amber-400'
+              }`}
+            >
               <Globe className="w-5 h-5" />
             </div>
           </div>
 
           <div className="p-4 rounded-2xl bg-neutral-900/80 border border-neutral-800/90 flex items-center justify-between">
             <div>
-              <div className="text-[11px] text-neutral-400 font-medium">Active 11:11 Right Now</div>
+              <div className="text-[11px] text-neutral-400 font-medium">
+                Active {is420 ? '4:20' : '11:11'} Right Now
+              </div>
               <div className="text-xl font-bold font-display text-emerald-400 mt-0.5 flex items-center gap-2">
-                <span>{activeCount} {activeCount === 1 ? 'City' : 'Cities'}</span>
+                <span>
+                  {activeCount} {activeCount === 1 ? 'City' : 'Cities'}
+                </span>
                 {activeCount > 0 && (
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                 )}
@@ -213,12 +260,25 @@ export const WorldDirectoryView: React.FC<WorldDirectoryViewProps> = ({
 
           <div className="p-4 rounded-2xl bg-neutral-900/80 border border-neutral-800/90 flex items-center justify-between">
             <div>
-              <div className="text-[11px] text-neutral-400 font-medium">Next Global 11:11</div>
-              <div className="text-sm font-bold font-mono text-amber-400 mt-0.5 truncate">
-                {nextUpCity?.city.name} (in {formatCountdownHuman(nextUpCity?.nextEvent.remainingMs || 0)})
+              <div className="text-[11px] text-neutral-400 font-medium">
+                Next Global {is420 ? '4:20' : '11:11'}
+              </div>
+              <div
+                className={`text-sm font-bold font-mono mt-0.5 truncate ${
+                  is420 ? 'text-emerald-400' : 'text-amber-400'
+                }`}
+              >
+                {nextUpCity?.city.name} (in{' '}
+                {formatCountdownHuman(nextUpCity?.nextEvent.remainingMs || 0)})
               </div>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+            <div
+              className={`w-10 h-10 rounded-xl border flex items-center justify-center ${
+                is420
+                  ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                  : 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+              }`}
+            >
               <Clock className="w-5 h-5" />
             </div>
           </div>
@@ -236,12 +296,14 @@ export const WorldDirectoryView: React.FC<WorldDirectoryViewProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by city, country, time zone (e.g. Tokyo, America/Vancouver, UTC-7)..."
-                className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-neutral-100 text-xs placeholder:text-neutral-500 focus:outline-none focus:border-amber-500/60 transition-colors"
+                className={`w-full pl-9 pr-4 py-2.5 rounded-xl bg-neutral-950 border border-neutral-800 text-neutral-100 text-xs placeholder:text-neutral-500 focus:outline-none transition-colors ${
+                  is420 ? 'focus:border-emerald-500/60' : 'focus:border-amber-500/60'
+                }`}
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-300 text-xs"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-300 text-xs cursor-pointer"
                 >
                   Clear
                 </button>
@@ -258,9 +320,11 @@ export const WorldDirectoryView: React.FC<WorldDirectoryViewProps> = ({
                 id="select-world-sort"
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as SortOption)}
-                className="bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none focus:border-amber-500/60 transition-colors cursor-pointer"
+                className={`bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-neutral-200 focus:outline-none transition-colors cursor-pointer ${
+                  is420 ? 'focus:border-emerald-500/60' : 'focus:border-amber-500/60'
+                }`}
               >
-                <option value="countdown">Next 11:11 (Soonest First)</option>
+                <option value="countdown">Next {is420 ? '4:20' : '11:11'} (Soonest First)</option>
                 <option value="name">City Name (A to Z)</option>
                 <option value="offset">Time Zone Offset (West to East)</option>
                 <option value="localTime">Current Clock Time</option>
@@ -273,11 +337,21 @@ export const WorldDirectoryView: React.FC<WorldDirectoryViewProps> = ({
               onClick={() => setShowOnlyFavorites(!showOnlyFavorites)}
               className={`flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
                 showOnlyFavorites
-                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                  ? is420
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                    : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
                   : 'bg-neutral-950 text-neutral-400 border-neutral-800 hover:text-neutral-200'
               }`}
             >
-              <Star className={`w-3.5 h-3.5 ${showOnlyFavorites ? 'fill-amber-400 text-amber-400' : ''}`} />
+              <Star
+                className={`w-3.5 h-3.5 ${
+                  showOnlyFavorites
+                    ? is420
+                      ? 'fill-emerald-400 text-emerald-400'
+                      : 'fill-amber-400 text-amber-400'
+                    : ''
+                }`}
+              />
               <span>Favorites ({favoriteIds.length})</span>
             </button>
           </div>
@@ -296,7 +370,9 @@ export const WorldDirectoryView: React.FC<WorldDirectoryViewProps> = ({
                   onClick={() => setSelectedRegion(region)}
                   className={`px-3 py-1.5 rounded-xl text-xs whitespace-nowrap transition-all border cursor-pointer ${
                     selectedRegion === region
-                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold'
+                      ? is420
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold'
+                        : 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold'
                       : 'bg-neutral-950 text-neutral-400 border-neutral-800 hover:text-neutral-200'
                   }`}
                 >
@@ -313,7 +389,9 @@ export const WorldDirectoryView: React.FC<WorldDirectoryViewProps> = ({
             Showing <strong className="text-white">{processedCities.length}</strong> of {cities.length} cities
           </span>
           {showOnlyFavorites && (
-            <span className="text-amber-400 font-medium">Filtered to Starred Favorites</span>
+            <span className={`${is420 ? 'text-emerald-400' : 'text-amber-400'} font-medium`}>
+              Filtered to Starred Favorites
+            </span>
           )}
         </div>
 
@@ -327,13 +405,21 @@ export const WorldDirectoryView: React.FC<WorldDirectoryViewProps> = ({
                 key={city.id}
                 className={`p-4 rounded-2xl border transition-all relative overflow-hidden flex flex-col justify-between gap-3 group ${
                   nextEvent.isCurrentActive
-                    ? 'bg-gradient-to-br from-amber-500/15 via-neutral-900 to-neutral-900 border-amber-400/60 shadow-lg shadow-amber-500/10'
+                    ? is420
+                      ? 'bg-gradient-to-br from-emerald-500/15 via-neutral-900 to-neutral-900 border-emerald-400/60 shadow-lg shadow-emerald-500/10'
+                      : 'bg-gradient-to-br from-amber-500/15 via-neutral-900 to-neutral-900 border-amber-400/60 shadow-lg shadow-amber-500/10'
                     : 'bg-neutral-900/80 border-neutral-800/90 hover:border-neutral-700 hover:bg-neutral-900'
                 }`}
               >
-                {/* Active 11:11 glowing pulse bar */}
+                {/* Active glowing pulse bar */}
                 {nextEvent.isCurrentActive && (
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 via-yellow-300 to-emerald-400 animate-pulse" />
+                  <div
+                    className={`absolute top-0 left-0 right-0 h-1 animate-pulse ${
+                      is420
+                        ? 'bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-400'
+                        : 'bg-gradient-to-r from-amber-400 via-yellow-300 to-emerald-400'
+                    }`}
+                  />
                 )}
 
                 {/* Header row: Flag, Name, UTC offset, Favorite */}
@@ -352,7 +438,7 @@ export const WorldDirectoryView: React.FC<WorldDirectoryViewProps> = ({
                         </span>
                         {nextEvent.isCurrentActive && (
                           <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-500/30 animate-pulse">
-                            ACTIVE 11:11
+                            ACTIVE {is420 ? '4:20' : '11:11'}
                           </span>
                         )}
                       </div>
@@ -364,10 +450,20 @@ export const WorldDirectoryView: React.FC<WorldDirectoryViewProps> = ({
 
                   <button
                     onClick={() => onToggleFavorite(city.id)}
-                    className="p-2 rounded-xl text-neutral-500 hover:text-amber-400 hover:bg-neutral-800 transition-colors shrink-0 cursor-pointer"
+                    className={`p-2 rounded-xl text-neutral-500 hover:bg-neutral-800 transition-colors shrink-0 cursor-pointer ${
+                      is420 ? 'hover:text-emerald-400' : 'hover:text-amber-400'
+                    }`}
                     title={isFav ? 'Remove from favorites' : 'Add to favorites'}
                   >
-                    <Star className={`w-4 h-4 ${isFav ? 'fill-amber-400 text-amber-400' : ''}`} />
+                    <Star
+                      className={`w-4 h-4 ${
+                        isFav
+                          ? is420
+                            ? 'fill-emerald-400 text-emerald-400'
+                            : 'fill-amber-400 text-amber-400'
+                          : ''
+                      }`}
+                    />
                   </button>
                 </div>
 
@@ -387,30 +483,42 @@ export const WorldDirectoryView: React.FC<WorldDirectoryViewProps> = ({
                       Current Time
                     </div>
                     <div className="font-mono text-neutral-100 font-semibold mt-0.5 text-[12px] flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-amber-400/80" />
+                      <Clock
+                        className={`w-3 h-3 ${is420 ? 'text-emerald-400/80' : 'text-amber-400/80'}`}
+                      />
                       <span>{currentClock}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Bottom Row: Next 11:11 countdown & Quick Wish action */}
+                {/* Bottom Row: Next countdown & Action */}
                 <div className="flex items-center justify-between gap-2 pt-1 border-t border-neutral-800/60">
                   <div>
                     <div className="text-[10px] text-neutral-400">
                       Next {nextEvent.localTimeFormatted}:
                     </div>
-                    <div className="font-mono font-bold text-sm text-amber-400">
+                    <div
+                      className={`font-mono font-bold text-sm ${
+                        is420 ? 'text-emerald-400' : 'text-amber-400'
+                      }`}
+                    >
                       in {countdownStr}
                     </div>
                   </div>
 
                   <button
                     onClick={() => onSelectCityForWish(city.name)}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-neutral-800 hover:bg-amber-500/20 text-neutral-300 hover:text-amber-300 border border-neutral-700 hover:border-amber-500/30 text-xs font-semibold transition-all cursor-pointer"
-                    title={`Make a wish for ${city.name}`}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                      is420
+                        ? 'bg-neutral-800 hover:bg-emerald-500/20 text-neutral-300 hover:text-emerald-300 border-neutral-700 hover:border-emerald-500/30'
+                        : 'bg-neutral-800 hover:bg-amber-500/20 text-neutral-300 hover:text-amber-300 border-neutral-700 hover:border-amber-500/30'
+                    }`}
+                    title={is420 ? `Catch 4:20 vibe in ${city.name}` : `Make a wish for ${city.name}`}
                   >
-                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Wish</span>
+                    <Sparkles
+                      className={`w-3.5 h-3.5 ${is420 ? 'text-emerald-400' : 'text-amber-400'}`}
+                    />
+                    <span>{is420 ? '4:20 Vibe' : 'Wish'}</span>
                   </button>
                 </div>
               </div>
@@ -434,7 +542,11 @@ export const WorldDirectoryView: React.FC<WorldDirectoryViewProps> = ({
                 setSelectedRegion('All');
                 setShowOnlyFavorites(false);
               }}
-              className="px-4 py-2 rounded-xl bg-amber-400 text-neutral-950 text-xs font-bold transition-all shadow-sm hover:bg-amber-300 cursor-pointer"
+              className={`px-4 py-2 rounded-xl text-neutral-950 text-xs font-bold transition-all shadow-sm cursor-pointer ${
+                is420
+                  ? 'bg-emerald-400 hover:bg-emerald-300'
+                  : 'bg-amber-400 hover:bg-amber-300'
+              }`}
             >
               Reset All Filters
             </button>
@@ -444,3 +556,4 @@ export const WorldDirectoryView: React.FC<WorldDirectoryViewProps> = ({
     </div>
   );
 };
+

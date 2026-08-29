@@ -1,3 +1,5 @@
+export type TrackerMode = '1111' | '420';
+
 export interface CityTimeZone {
   id: string;
   name: string;
@@ -17,10 +19,13 @@ export interface Next1111Event {
   period: 'AM' | 'PM';
   targetDate: Date;
   remainingMs: number;
-  localTimeFormatted: string; // e.g. "11:11 AM"
+  localTimeFormatted: string; // e.g. "11:11 AM" or "4:20 PM"
   userTimeFormatted: string; // e.g. "1:11 PM PDT"
-  isCurrentActive: boolean; // True if it is currently 11:11:xx in that timezone
+  isCurrentActive: boolean; // True if it is currently target time (11:11:xx or 4:20:xx)
+  mode: TrackerMode;
 }
+
+export type NextMomentEvent = Next1111Event;
 
 export interface Grouped1111Slot {
   id: string;
@@ -31,12 +36,15 @@ export interface Grouped1111Slot {
   primaryCity: CityTimeZone;
   primaryTz: string;
   gmtOffsetFormatted: string;
-  localPeriodFormatted: string; // e.g. "11:11 AM local time"
+  localPeriodFormatted: string; // e.g. "11:11 AM local time" or "4:20 PM local time"
   clockNowFormatted: string;
   utcTargetFormatted: string; // e.g. "at 20:11:00 UTC"
   approxMinutesText: string; // e.g. "≈ 9 minutes from now"
   isCurrentActive: boolean;
+  mode: TrackerMode;
 }
+
+export type GroupedMomentSlot = Grouped1111Slot;
 
 export interface NotificationPreferences {
   enabled: boolean;
@@ -44,6 +52,9 @@ export interface NotificationPreferences {
   scope: 'worldwide' | 'local_only' | 'favorites';
   notifyMinutesBefore: number;
   favoriteCityIds: string[];
+  enable420: boolean; // Whether 4:20 mode tab and features are enabled
+  notify1111: boolean; // Whether to send 11:11 alerts
+  notify420: boolean; // Whether to send 4:20 alerts
 }
 
 export interface UserWish {
@@ -53,7 +64,9 @@ export interface UserWish {
   cityName: string;
   period: 'AM' | 'PM';
   targetTimestamp?: number;
+  mode?: TrackerMode;
 }
 
 export type WidgetStyle = 'material_you' | 'compact_pill' | 'rich_card' | 'minimal_glance';
 export type WidgetTheme = 'amber' | 'indigo' | 'emerald' | 'sunset' | 'midnight';
+

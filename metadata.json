@@ -1,6 +1,6 @@
 {
   "name": "Next 11:11",
-  "description": "Real-time world tracker showing which city hits 11:11 next, with Android home screen widgets, countdown timer, and push notification alerts.",
+  "description": "Real-time world clock tracker showing which cities hit 11:11 and 4:20 next, with interactive world map, audio chimes, home screen widgets, and push notifications.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

@@ -1,16 +1,17 @@
 import React, { useState, useMemo } from 'react';
 import { Search, Star, Clock, Globe, Filter, Sparkles, Layers } from 'lucide-react';
-import { Grouped1111Slot, Next1111Event, CityTimeZone } from '../types';
+import { GroupedMomentSlot, NextMomentEvent, CityTimeZone, TrackerMode } from '../types';
 import { formatCountdownHuman } from '../utils/timeEngine';
 
 interface WorldTimelineProps {
-  groupedUpcoming: Grouped1111Slot[];
-  timeline: Next1111Event[];
+  groupedUpcoming: GroupedMomentSlot[];
+  timeline: NextMomentEvent[];
   favoriteIds: string[];
   onToggleFavorite: (cityId: string) => void;
   onSelectCity: (city: CityTimeZone) => void;
   onOpenWorldDirectory?: () => void;
   userTimeZone: string;
+  mode?: TrackerMode;
 }
 
 export const WorldTimeline: React.FC<WorldTimelineProps> = ({
@@ -21,7 +22,9 @@ export const WorldTimeline: React.FC<WorldTimelineProps> = ({
   onSelectCity,
   onOpenWorldDirectory,
   userTimeZone,
+  mode = '1111',
 }) => {
+  const is420 = mode === '420';
   const [viewMode, setViewMode] = useState<'grouped' | 'individual'>('grouped');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRegion, setSelectedRegion] = useState<string>('All');
@@ -51,10 +54,10 @@ export const WorldTimeline: React.FC<WorldTimelineProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800 pb-4">
         <div>
           <div className="text-[11px] font-bold tracking-[0.2em] text-neutral-400 uppercase">
-            UP NEXT AROUND THE WORLD
+            UP NEXT AROUND THE WORLD ({is420 ? '4:20' : '11:11'})
           </div>
           <p className="text-xs text-neutral-400 mt-0.5">
-            Scanning {timeline.length} cities for the next moment it reads 11:11 (AM or PM).
+            Scanning {timeline.length} cities for the next moment it reads {is420 ? '4:20' : '11:11'} (AM or PM).
           </p>
         </div>
 
@@ -66,7 +69,7 @@ export const WorldTimeline: React.FC<WorldTimelineProps> = ({
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-950 hover:bg-neutral-850 border border-neutral-800 hover:border-neutral-700 text-xs font-semibold text-neutral-300 hover:text-white transition-all cursor-pointer shadow-sm"
               title="Open full-screen world directory with live clocks and time zones"
             >
-              <Globe className="w-3.5 h-3.5 text-amber-400" />
+              <Globe className={`w-3.5 h-3.5 ${is420 ? 'text-emerald-400' : 'text-amber-400'}`} />
               <span>Show World</span>
             </button>
           )}
@@ -76,7 +79,9 @@ export const WorldTimeline: React.FC<WorldTimelineProps> = ({
               onClick={() => setViewMode('grouped')}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
                 viewMode === 'grouped'
-                  ? 'bg-amber-500 text-neutral-950 font-bold shadow-sm'
+                  ? is420
+                    ? 'bg-emerald-500 text-neutral-950 font-bold shadow-sm'
+                    : 'bg-amber-500 text-neutral-950 font-bold shadow-sm'
                   : 'text-neutral-400 hover:text-neutral-200'
               }`}
             >
@@ -86,7 +91,9 @@ export const WorldTimeline: React.FC<WorldTimelineProps> = ({
               onClick={() => setViewMode('individual')}
               className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
                 viewMode === 'individual'
-                  ? 'bg-amber-500 text-neutral-950 font-bold shadow-sm'
+                  ? is420
+                    ? 'bg-emerald-500 text-neutral-950 font-bold shadow-sm'
+                    : 'bg-amber-500 text-neutral-950 font-bold shadow-sm'
                   : 'text-neutral-400 hover:text-neutral-200'
               }`}
             >
@@ -96,7 +103,7 @@ export const WorldTimeline: React.FC<WorldTimelineProps> = ({
         </div>
       </div>
 
-      {/* GROUPED VIEW (Matching exact custom calculator screenshot) */}
+      {/* GROUPED VIEW (Matching exact custom calculator layout) */}
       {viewMode === 'grouped' && (
         <div className="divide-y divide-neutral-800/80">
           {groupedUpcoming.slice(1).map((slot, index) => {
@@ -120,7 +127,11 @@ export const WorldTimeline: React.FC<WorldTimelineProps> = ({
                 </div>
 
                 <div className="text-left sm:text-right flex-shrink-0">
-                  <div className="font-display font-bold text-sm sm:text-base text-amber-400">
+                  <div
+                    className={`font-display font-bold text-sm sm:text-base ${
+                      is420 ? 'text-emerald-400' : 'text-amber-400'
+                    }`}
+                  >
                     in {countdownStr}
                   </div>
                   <div className="text-xs text-neutral-400">
@@ -145,20 +156,32 @@ export const WorldTimeline: React.FC<WorldTimelineProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search city, country, or timezone..."
-                className="w-full pl-9 pr-4 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-neutral-100 text-xs placeholder:text-neutral-500 focus:outline-none focus:border-amber-500/60 transition-colors"
+                className={`w-full pl-9 pr-4 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-neutral-100 text-xs placeholder:text-neutral-500 focus:outline-none transition-colors ${
+                  is420 ? 'focus:border-emerald-500/60' : 'focus:border-amber-500/60'
+                }`}
               />
             </div>
 
             {/* Favorites filter toggle */}
             <button
               onClick={() => setShowOnlyFavorites(!showOnlyFavorites)}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border transition-all cursor-pointer ${
                 showOnlyFavorites
-                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold'
+                  ? is420
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold'
+                    : 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold'
                   : 'bg-neutral-950 text-neutral-400 border-neutral-800 hover:text-neutral-200'
               }`}
             >
-              <Star className={`w-3.5 h-3.5 ${showOnlyFavorites ? 'fill-amber-400 text-amber-400' : ''}`} />
+              <Star
+                className={`w-3.5 h-3.5 ${
+                  showOnlyFavorites
+                    ? is420
+                      ? 'fill-emerald-400 text-emerald-400'
+                      : 'fill-amber-400 text-amber-400'
+                    : ''
+                }`}
+              />
               <span>Favorites ({favoriteIds.length})</span>
             </button>
           </div>
@@ -169,7 +192,7 @@ export const WorldTimeline: React.FC<WorldTimelineProps> = ({
               <button
                 key={region}
                 onClick={() => setSelectedRegion(region)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all border ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all border cursor-pointer ${
                   selectedRegion === region
                     ? 'bg-neutral-800 text-white border-neutral-600 font-semibold'
                     : 'bg-neutral-950 text-neutral-400 border-neutral-850 hover:text-neutral-200'
@@ -192,7 +215,9 @@ export const WorldTimeline: React.FC<WorldTimelineProps> = ({
                   onClick={() => onSelectCity(event.city)}
                   className={`p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
                     event.isCurrentActive
-                      ? 'bg-amber-500/15 border-amber-400/50 shadow-md shadow-amber-500/10'
+                      ? is420
+                        ? 'bg-emerald-500/15 border-emerald-400/50 shadow-md shadow-emerald-500/10'
+                        : 'bg-amber-500/15 border-amber-400/50 shadow-md shadow-amber-500/10'
                       : 'bg-neutral-950/60 border-neutral-800/80 hover:border-neutral-700 hover:bg-neutral-950'
                   }`}
                 >
@@ -215,7 +240,11 @@ export const WorldTimeline: React.FC<WorldTimelineProps> = ({
 
                   <div className="flex items-center gap-2.5 flex-shrink-0">
                     <div className="text-right">
-                      <div className="font-mono text-xs font-bold text-amber-400">
+                      <div
+                        className={`font-mono text-xs font-bold ${
+                          is420 ? 'text-emerald-400' : 'text-amber-400'
+                        }`}
+                      >
                         {countdownStr}
                       </div>
                       <div className="text-[10px] text-neutral-400">
@@ -228,10 +257,20 @@ export const WorldTimeline: React.FC<WorldTimelineProps> = ({
                         e.stopPropagation();
                         onToggleFavorite(event.city.id);
                       }}
-                      className="p-1.5 rounded-lg text-neutral-500 hover:text-amber-400 transition-colors"
+                      className={`p-1.5 rounded-lg text-neutral-500 transition-colors cursor-pointer ${
+                        is420 ? 'hover:text-emerald-400' : 'hover:text-amber-400'
+                      }`}
                       title={isFav ? 'Remove from favorites' : 'Add to favorites'}
                     >
-                      <Star className={`w-3.5 h-3.5 ${isFav ? 'fill-amber-400 text-amber-400' : ''}`} />
+                      <Star
+                        className={`w-3.5 h-3.5 ${
+                          isFav
+                            ? is420
+                              ? 'fill-emerald-400 text-emerald-400'
+                              : 'fill-amber-400 text-amber-400'
+                            : ''
+                        }`}
+                      />
                     </button>
                   </div>
                 </div>
@@ -243,3 +282,4 @@ export const WorldTimeline: React.FC<WorldTimelineProps> = ({
     </div>
   );
 };
+

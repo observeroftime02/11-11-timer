@@ -1,4 +1,4 @@
-import { CityTimeZone, Next1111Event, Grouped1111Slot } from '../types';
+import { CityTimeZone, Next1111Event, Grouped1111Slot, TrackerMode } from '../types';
 import { WORLD_CITIES } from '../data/timezones';
 
 function ensureDate(d: any): Date {
@@ -9,6 +9,43 @@ function ensureDate(d: any): Date {
   }
   return new Date();
 }
+
+/**
+ * Target configuration for 11:11 and 4:20 modes
+ */
+export interface TargetMomentDefinition {
+  mode: TrackerMode;
+  label: string; // '11:11' or '4:20'
+  amHour: number; // 11 or 4
+  pmHour: number; // 23 or 16
+  targetMinute: number; // 11 or 20
+  title: string; // "11:11" or "4:20"
+  emoji: string; // "✨" or "🌿"
+  colorTheme: 'amber' | 'emerald';
+}
+
+export const TARGET_MOMENTS: Record<TrackerMode, TargetMomentDefinition> = {
+  '1111': {
+    mode: '1111',
+    label: '11:11',
+    amHour: 11,
+    pmHour: 23,
+    targetMinute: 11,
+    title: '11:11 Wish Time',
+    emoji: '✨',
+    colorTheme: 'amber',
+  },
+  '420': {
+    mode: '420',
+    label: '4:20',
+    amHour: 4,
+    pmHour: 16,
+    targetMinute: 20,
+    title: '4:20 Vibe Time',
+    emoji: '🌿',
+    colorTheme: 'emerald',
+  },
+};
 
 /**
  * Gets the current breakdown (year, month, day, hour, minute, second) in a given IANA timezone.
@@ -83,7 +120,7 @@ export function findUtcForTzLocalTime(
 ): Date {
   let guess = new Date(Date.UTC(year, month - 1, day, targetHour, targetMinute, 0));
   
-  // Refine guess up to 3 times to account for timezone offsets and daylight saving transitions
+  // Refine guess up to 4 times to account for timezone offsets and daylight saving transitions
   for (let i = 0; i < 4; i++) {
     const local = getTzParts(guess, timeZone);
     const localDateUtcRepr = Date.UTC(local.year, local.month - 1, local.day, local.hour, local.minute, local.second);
@@ -116,26 +153,28 @@ export function getGmtOffsetString(date: Date, timeZone: string): string {
 }
 
 /**
- * Calculates the next 11:11 event (either AM or PM) for a specific city.
+ * Calculates the next target event (either 11:11 or 4:20, AM or PM) for a specific city.
  */
-export function getNext1111ForCity(
+export function getNextTargetForCity(
   city: CityTimeZone,
+  mode: TrackerMode = '1111',
   now: Date = new Date(),
   userTimeZone: string = 'America/Vancouver'
 ): Next1111Event {
+  const config = TARGET_MOMENTS[mode] || TARGET_MOMENTS['1111'];
   const local = getTzParts(now, city.timeZone);
   
-  // Is it 11:11:xx right now?
-  const isAm1111Now = local.hour === 11 && local.minute === 11;
-  const isPm1111Now = local.hour === 23 && local.minute === 11;
-  const isCurrentActive = isAm1111Now || isPm1111Now;
+  // Is it target time (e.g. 11:11:xx or 4:20:xx) right now?
+  const isAmNow = local.hour === config.amHour && local.minute === config.targetMinute;
+  const isPmNow = local.hour === config.pmHour && local.minute === config.targetMinute;
+  const isCurrentActive = isAmNow || isPmNow;
 
   // Potential local targets:
   const candidates: { hour: number; dayOffset: number; period: 'AM' | 'PM' }[] = [
-    { hour: 11, dayOffset: 0, period: 'AM' },
-    { hour: 23, dayOffset: 0, period: 'PM' },
-    { hour: 11, dayOffset: 1, period: 'AM' },
-    { hour: 23, dayOffset: 1, period: 'PM' },
+    { hour: config.amHour, dayOffset: 0, period: 'AM' },
+    { hour: config.pmHour, dayOffset: 0, period: 'PM' },
+    { hour: config.amHour, dayOffset: 1, period: 'AM' },
+    { hour: config.pmHour, dayOffset: 1, period: 'PM' },
   ];
 
   let nextTargetDate: Date | null = null;
@@ -145,7 +184,7 @@ export function getNext1111ForCity(
 
   for (const cand of candidates) {
     const targetLocalDay = local.day + cand.dayOffset;
-    const targetDate = findUtcForTzLocalTime(local.year, local.month, targetLocalDay, cand.hour, 11, city.timeZone);
+    const targetDate = findUtcForTzLocalTime(local.year, local.month, targetLocalDay, cand.hour, config.targetMinute, city.timeZone);
     const remaining = targetDate.getTime() - nowMs;
 
     if (remaining > 0 && remaining < minRemaining) {
@@ -156,7 +195,7 @@ export function getNext1111ForCity(
   }
 
   if (!nextTargetDate) {
-    nextTargetDate = findUtcForTzLocalTime(local.year, local.month, local.day + 1, 11, 11, city.timeZone);
+    nextTargetDate = findUtcForTzLocalTime(local.year, local.month, local.day + 1, config.amHour, config.targetMinute, city.timeZone);
     nextPeriod = 'AM';
     minRemaining = nextTargetDate.getTime() - nowMs;
   }
@@ -176,18 +215,42 @@ export function getNext1111ForCity(
     period: nextPeriod,
     targetDate: nextTargetDate,
     remainingMs: Math.max(0, minRemaining),
-    localTimeFormatted: `11:11 ${nextPeriod}`,
+    localTimeFormatted: `${config.label} ${nextPeriod}`,
     userTimeFormatted: userFormatter.format(nextTargetDate),
     isCurrentActive,
+    mode,
   };
 }
 
 /**
- * Returns grouped 11:11 slots across all cities worldwide.
- * Groups cities that hit 11:11 (AM or PM) at the exact same target UTC second.
+ * Backward-compatible helper for 11:11
  */
-export function getNext1111Worldwide(
-  cities: CityTimeZone[] = WORLD_CITIES,
+export function getNext1111ForCity(
+  city: CityTimeZone,
+  now: Date = new Date(),
+  userTimeZone: string = 'America/Vancouver'
+): Next1111Event {
+  return getNextTargetForCity(city, '1111', now, userTimeZone);
+}
+
+/**
+ * Helper for 4:20
+ */
+export function getNext420ForCity(
+  city: CityTimeZone,
+  now: Date = new Date(),
+  userTimeZone: string = 'America/Vancouver'
+): Next1111Event {
+  return getNextTargetForCity(city, '420', now, userTimeZone);
+}
+
+/**
+ * Returns grouped target slots across all cities worldwide for 11:11 or 4:20 mode.
+ * Groups cities that hit the target minute at the exact same target UTC second.
+ */
+export function getNextTargetWorldwide(
+  arg1?: TrackerMode | CityTimeZone[],
+  arg2?: CityTimeZone[] | TrackerMode | Date | string,
   nowOrTz?: Date | string,
   maybeUserTimeZone?: string
 ): {
@@ -197,21 +260,45 @@ export function getNext1111Worldwide(
   groupedUpcoming: Grouped1111Slot[];
   upcomingTimeline: Next1111Event[];
   userLocalNext: Next1111Event;
+  mode: TrackerMode;
+  config: TargetMomentDefinition;
 } {
+  let mode: TrackerMode = '1111';
+  let cities: CityTimeZone[] = WORLD_CITIES;
+  let dateParam: Date | string | undefined = nowOrTz;
+  let tzParam: string | undefined = maybeUserTimeZone;
+
+  if (Array.isArray(arg1)) {
+    cities = arg1;
+    if (typeof arg2 === 'string' && (arg2 === '1111' || arg2 === '420')) {
+      mode = arg2 as TrackerMode;
+    } else if (arg2 instanceof Date || typeof arg2 === 'string') {
+      dateParam = arg2 as Date | string;
+    }
+  } else if (typeof arg1 === 'string' && (arg1 === '1111' || arg1 === '420')) {
+    mode = arg1 as TrackerMode;
+    if (Array.isArray(arg2)) {
+      cities = arg2;
+    } else if (arg2 instanceof Date || typeof arg2 === 'string') {
+      dateParam = arg2 as Date | string;
+    }
+  }
+
   let now: Date;
   let userTimeZone: string;
 
-  if (typeof nowOrTz === 'string') {
-    userTimeZone = nowOrTz;
+  if (typeof dateParam === 'string' && !tzParam) {
+    userTimeZone = dateParam;
     now = new Date();
   } else {
-    now = ensureDate(nowOrTz);
-    userTimeZone = maybeUserTimeZone || 'America/Vancouver';
+    now = ensureDate(dateParam);
+    userTimeZone = tzParam || (typeof dateParam === 'string' ? dateParam : 'America/Vancouver');
   }
 
-  const events = cities.map((c) => getNext1111ForCity(c, now, userTimeZone));
+  const config = TARGET_MOMENTS[mode] || TARGET_MOMENTS['1111'];
+  const events = cities.map((c) => getNextTargetForCity(c, mode, now, userTimeZone));
   
-  // Find currently active cities (where it is 11:11:xx right now)
+  // Find currently active cities
   const activeNow = events.filter((e) => e.isCurrentActive).map((e) => e.city);
 
   // Group events by target UTC minute timestamp
@@ -252,10 +339,10 @@ export function getNext1111Worldwide(
       const allAm = evList.every((e) => e.period === 'AM');
       const allPm = evList.every((e) => e.period === 'PM');
       const localPeriodFormatted = allAm
-        ? '11:11 AM local time'
+        ? `${config.label} AM local time`
         : allPm
-        ? '11:11 PM local time'
-        : '11:11 AM / PM local time';
+        ? `${config.label} PM local time`
+        : `${config.label} AM / PM local time`;
 
       return {
         id: `slot-${bucketTime}`,
@@ -271,12 +358,29 @@ export function getNext1111Worldwide(
         utcTargetFormatted,
         approxMinutesText,
         isCurrentActive,
+        mode,
       };
     })
     .sort((a, b) => a.remainingMs - b.remainingMs);
 
-  const primarySlot = groupedSlots[0];
-  const primary = primarySlot.cities[0];
+  const primarySlot = groupedSlots[0] || {
+    id: 'slot-default',
+    targetDate: new Date(),
+    remainingMs: 0,
+    cities: events,
+    cityNames: ['Vancouver'],
+    primaryCity: cities[0],
+    primaryTz: cities[0]?.timeZone || 'America/Vancouver',
+    gmtOffsetFormatted: 'GMT-7',
+    localPeriodFormatted: `${config.label} AM local time`,
+    clockNowFormatted: '11:11:00',
+    utcTargetFormatted: 'at 18:11:00 UTC',
+    approxMinutesText: 'in less than a minute',
+    isCurrentActive: false,
+    mode,
+  };
+
+  const primary = primarySlot.cities[0] || events[0];
 
   // Also get user's local city or custom local calculation
   const userCity = cities.find((c) => c.timeZone === userTimeZone) || {
@@ -291,7 +395,7 @@ export function getNext1111Worldwide(
     lng: -123.12,
     baseOffsetUtc: 'UTC-7',
   };
-  const userLocalNext = getNext1111ForCity(userCity, now, userTimeZone);
+  const userLocalNext = getNextTargetForCity(userCity, mode, now, userTimeZone);
 
   const sortedUpcoming = [...events].sort((a, b) => a.remainingMs - b.remainingMs);
 
@@ -302,7 +406,31 @@ export function getNext1111Worldwide(
     groupedUpcoming: groupedSlots,
     upcomingTimeline: sortedUpcoming,
     userLocalNext,
+    mode,
+    config,
   };
+}
+
+/**
+ * Backward-compatible wrapper for 11:11 worldwide
+ */
+export function getNext1111Worldwide(
+  cities: CityTimeZone[] = WORLD_CITIES,
+  nowOrTz?: Date | string,
+  maybeUserTimeZone?: string
+) {
+  return getNextTargetWorldwide('1111', cities, nowOrTz, maybeUserTimeZone);
+}
+
+/**
+ * Helper for 4:20 worldwide
+ */
+export function getNext420Worldwide(
+  cities: CityTimeZone[] = WORLD_CITIES,
+  nowOrTz?: Date | string,
+  maybeUserTimeZone?: string
+) {
+  return getNextTargetWorldwide('420', cities, nowOrTz, maybeUserTimeZone);
 }
 
 /**
@@ -392,3 +520,4 @@ export function formatCurrentTzTime12(dateOrTz?: Date | string, maybeTz?: string
     return '--:--:--';
   }
 }
+

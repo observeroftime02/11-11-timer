@@ -11,22 +11,38 @@ import { MakeAWishModal } from './components/MakeAWishModal';
 import { NotificationModal } from './components/NotificationModal';
 import { PrivacyPolicyModal } from './components/PrivacyPolicyModal';
 import { WORLD_CITIES } from './data/timezones';
-import { getNext1111Worldwide, formatCurrentTzTime, formatCountdownHuman, getNext1111ForCity } from './utils/timeEngine';
+import {
+  getNextTargetWorldwide,
+  getNextTargetForCity,
+  formatCurrentTzTime,
+  formatCountdownHuman,
+} from './utils/timeEngine';
 import {
   loadNotificationPrefs,
   saveNotificationPrefs,
   playChimeSound,
+  synthesizeChillTone,
   send1111Notification,
   syncScheduled1111Notifications,
 } from './utils/notifications';
-import { CityTimeZone, NotificationPreferences, UserWish } from './types';
+import { CityTimeZone, NotificationPreferences, UserWish, TrackerMode } from './types';
 
 const STORAGE_KEY_FAVORITES = '1111_favorite_cities';
 const STORAGE_KEY_WISHES = '1111_user_wishes';
+const STORAGE_KEY_MODE = '1111_tracker_mode';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'map' | 'world'>('dashboard');
   const [userTimeZone, setUserTimeZone] = useState<string>('America/Vancouver');
+  const [trackerMode, setTrackerMode] = useState<TrackerMode>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY_MODE);
+      if (stored === '1111' || stored === '420') return stored;
+    } catch {
+      // ignore
+    }
+    return '1111';
+  });
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>(
     loadNotificationPrefs()
   );
@@ -67,7 +83,23 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
-  // Compute real-time 11:11 worldwide calculations
+  const handleSelectMode = (newMode: TrackerMode) => {
+    setTrackerMode(newMode);
+    try {
+      localStorage.setItem(STORAGE_KEY_MODE, newMode);
+    } catch {
+      // ignore
+    }
+  };
+
+  // If 420 mode is disabled in preferences and user is on 420 tab, fallback to 1111
+  useEffect(() => {
+    if (!notificationPrefs.enable420 && trackerMode === '420') {
+      handleSelectMode('1111');
+    }
+  }, [notificationPrefs.enable420, trackerMode]);
+
+  // Compute real-time target moment worldwide calculations
   const {
     primarySlot,
     primary,
@@ -75,38 +107,40 @@ export default function App() {
     groupedUpcoming,
     upcomingTimeline,
     userLocalNext,
-  } = getNext1111Worldwide(WORLD_CITIES, currentTime, userTimeZone);
+  } = getNextTargetWorldwide(WORLD_CITIES, trackerMode, currentTime, userTimeZone);
 
   // Compute queued upcoming wishes
   const queuedWishes = useMemo(() => {
     const nowMs = currentTime.getTime();
-    return wishes.filter((wish) => {
-      // If wish has targetTimestamp, check if it's in the future or active now (within 60s past)
-      if (wish.targetTimestamp) {
-        return wish.targetTimestamp >= nowMs - 60000;
-      }
-      // If legacy wish without targetTimestamp, dynamically calculate next 11:11
-      const city = WORLD_CITIES.find(
-        (c) => c.name.toLowerCase() === (wish.cityName || '').toLowerCase()
-      );
-      if (city) {
-        const nextEv = getNext1111ForCity(city, currentTime);
-        return nextEv.remainingMs >= -60000;
-      }
-      return true;
-    }).map((wish) => {
-      if (!wish.targetTimestamp) {
+    return wishes
+      .filter((wish) => {
+        // If wish has targetTimestamp, check if it's in the future or active now (within 60s past)
+        if (wish.targetTimestamp) {
+          return wish.targetTimestamp >= nowMs - 60000;
+        }
+        // If legacy wish without targetTimestamp, dynamically calculate next target moment
         const city = WORLD_CITIES.find(
           (c) => c.name.toLowerCase() === (wish.cityName || '').toLowerCase()
         );
-        const targetMs = city
-          ? getNext1111ForCity(city, currentTime).targetDate.getTime()
-          : getNext1111Worldwide(WORLD_CITIES, currentTime).primary.targetDate.getTime();
-        return { ...wish, targetTimestamp: targetMs };
-      }
-      return wish;
-    });
-  }, [wishes, currentTime]);
+        if (city) {
+          const nextEv = getNextTargetForCity(city, trackerMode, currentTime);
+          return nextEv.remainingMs >= -60000;
+        }
+        return true;
+      })
+      .map((wish) => {
+        if (!wish.targetTimestamp) {
+          const city = WORLD_CITIES.find(
+            (c) => c.name.toLowerCase() === (wish.cityName || '').toLowerCase()
+          );
+          const targetMs = city
+            ? getNextTargetForCity(city, trackerMode, currentTime).targetDate.getTime()
+            : getNextTargetWorldwide(WORLD_CITIES, trackerMode, currentTime).primary.targetDate.getTime();
+          return { ...wish, targetTimestamp: targetMs };
+        }
+        return wish;
+      });
+  }, [wishes, currentTime, trackerMode]);
 
   const handleAddWish = (newWish: UserWish) => {
     const updated = [newWish, ...wishes];
@@ -154,11 +188,15 @@ export default function App() {
     syncScheduled1111Notifications(notificationPrefs, favoriteCityIds, userTimeZone);
   }, [notificationPrefs, favoriteCityIds, userTimeZone]);
 
-  // Check and dispatch automatic 11:11 notifications (strictly 1 notification per occurrence)
+  // Check and dispatch automatic notifications (strictly 1 notification per occurrence)
   useEffect(() => {
     if (!notificationPrefs.enabled) return;
 
-    const currentMinuteKey = `${new Date().getUTCHours()}:${new Date().getUTCMinutes()}`;
+    // Check if the current mode is enabled for alerts
+    if (trackerMode === '1111' && notificationPrefs.notify1111 === false) return;
+    if (trackerMode === '420' && notificationPrefs.notify420 === false) return;
+
+    const currentMinuteKey = `${trackerMode}-${new Date().getUTCHours()}:${new Date().getUTCMinutes()}`;
     if (lastNotifiedMinuteRef.current === currentMinuteKey) return;
 
     if (activeNow.length > 0) {
@@ -178,14 +216,18 @@ export default function App() {
         const userTimeStr = formatCurrentTzTime(currentTime, userTimeZone);
 
         if (notificationPrefs.soundEnabled) {
-          playChimeSound();
+          if (trackerMode === '420') {
+            synthesizeChillTone();
+          } else {
+            playChimeSound();
+          }
         }
 
         // Send a single combined notification for the occurrence
-        send1111Notification(matchingActiveCities, 'AM', userTimeStr);
+        send1111Notification(matchingActiveCities, 'AM', userTimeStr, trackerMode);
       }
     }
-  }, [activeNow, notificationPrefs, userTimeZone, favoriteCityIds, currentTime]);
+  }, [activeNow, notificationPrefs, userTimeZone, favoriteCityIds, currentTime, trackerMode]);
 
   const handleOpenWishModalForCity = (cityName?: string) => {
     setWishCityContext(cityName || primary.city.name);
@@ -194,7 +236,9 @@ export default function App() {
 
   const vancouverTimeStr = formatCurrentTzTime(currentTime, 'America/Vancouver');
   const utcTimeStr = formatCurrentTzTime(currentTime, 'UTC');
-  const vancouverNextCountdown = formatCountdownHuman(userLocalNext.remainingMs);
+  const userNextCountdown = formatCountdownHuman(userLocalNext.remainingMs);
+
+  const is420 = trackerMode === '420';
 
   // If user opened the World Directory page
   if (currentView === 'world') {
@@ -208,11 +252,15 @@ export default function App() {
           onToggleFavorite={handleToggleFavorite}
           onSelectCityForWish={(cityName) => handleOpenWishModalForCity(cityName)}
           onBack={() => setCurrentView('dashboard')}
+          initialMode={trackerMode}
         />
         <MakeAWishModal
           isOpen={isWishModalOpen}
           onClose={() => setIsWishModalOpen(false)}
           currentCityName={wishCityContext}
+          wishes={wishes}
+          onAddWish={handleAddWish}
+          onDeleteWish={handleDeleteWish}
         />
         <NotificationModal
           isOpen={isNotificationModalOpen}
@@ -220,6 +268,7 @@ export default function App() {
           prefs={notificationPrefs}
           onUpdatePrefs={handleUpdateNotificationPrefs}
           currentNextCity={primary.city}
+          activeMode={trackerMode}
         />
       </>
     );
@@ -242,7 +291,13 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col selection:bg-amber-500/30 selection:text-amber-200">
+    <div
+      className={`min-h-screen bg-neutral-950 text-neutral-100 flex flex-col ${
+        is420
+          ? 'selection:bg-emerald-500/30 selection:text-emerald-200'
+          : 'selection:bg-amber-500/30 selection:text-amber-200'
+      }`}
+    >
       {/* Top Header */}
       <Header
         userTimeZone={userTimeZone}
@@ -253,26 +308,31 @@ export default function App() {
         onOpenWorldDirectory={() => setCurrentView('world')}
         isWishActiveNow={activeNow.length > 0}
         activeCount={activeNow.length}
+        mode={trackerMode}
+        currentMode={trackerMode}
+        onSelectMode={handleSelectMode}
       />
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-6 md:py-8 space-y-6 md:space-y-8">
-        {/* Primary Hero Focus: Next 11:11 in the world (with grouped simultaneous cities) */}
+        {/* Primary Hero Focus: Next Target Moment in the world (with grouped simultaneous cities) */}
         <Next1111Hero
           slot={primarySlot}
           activeNow={activeNow}
           userTimeZone={userTimeZone}
           onOpenWishModal={handleOpenWishModalForCity}
           onOpenWidgetModal={() => {}}
+          mode={trackerMode}
         />
 
-        {/* 2-Column Responsive Row: User Local (Vancouver), Queued Wishes & World Map Progression */}
+        {/* 2-Column Responsive Row: User Local (Home City), Queued Wishes & World Map Progression */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           <div className="lg:col-span-4 space-y-6">
             <UserLocalCard
               userLocalNext={userLocalNext}
               userTimeZone={userTimeZone}
               onSelectTimeZone={setUserTimeZone}
+              mode={trackerMode}
             />
 
             {/* Queued Wishes (displayed only when actual wishes are saved & upcoming) */}
@@ -307,6 +367,7 @@ export default function App() {
           onSelectCity={(city) => handleOpenWishModalForCity(city.name)}
           onOpenWorldDirectory={() => setCurrentView('world')}
           userTimeZone={userTimeZone}
+          mode={trackerMode}
         />
       </main>
 
@@ -315,7 +376,8 @@ export default function App() {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 text-center md:text-left">
           <div className="flex items-center gap-4 flex-wrap justify-center font-mono">
             <span>
-              Vancouver now: <strong className="text-neutral-100">{vancouverTimeStr}</strong>
+              Home clock ({userTimeZone.split('/').pop()?.replace(/_/g, ' ')}):{' '}
+              <strong className="text-neutral-100">{vancouverTimeStr}</strong>
             </span>
             <span className="text-neutral-700">•</span>
             <span>
@@ -323,17 +385,25 @@ export default function App() {
             </span>
             <span className="text-neutral-700">•</span>
             <span>
-              Your next Vancouver 11:11: <strong className="text-amber-400">in {vancouverNextCountdown}</strong> ({userLocalNext.localTimeFormatted})
+              Your next {is420 ? '4:20' : '11:11'}:{' '}
+              <strong className={is420 ? 'text-emerald-400' : 'text-amber-400'}>
+                in {userNextCountdown}
+              </strong>{' '}
+              ({userLocalNext.localTimeFormatted})
             </span>
           </div>
 
           <div className="flex items-center gap-3 text-[11px] text-neutral-500">
-            <span>Next 11:11 World Clock • Real-time IANA synchronization</span>
+            <span>
+              Next {is420 ? '4:20' : '11:11'} World Clock • Real-time IANA synchronization
+            </span>
             <span>•</span>
             <button
               id="btn-footer-privacy"
               onClick={() => setIsPrivacyModalOpen(true)}
-              className="text-neutral-400 hover:text-amber-300 underline underline-offset-2 transition-colors cursor-pointer"
+              className={`text-neutral-400 underline underline-offset-2 transition-colors cursor-pointer ${
+                is420 ? 'hover:text-emerald-300' : 'hover:text-amber-300'
+              }`}
             >
               Privacy Policy
             </button>

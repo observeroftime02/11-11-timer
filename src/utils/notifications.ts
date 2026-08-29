@@ -1,6 +1,6 @@
-import { NotificationPreferences, CityTimeZone } from '../types';
+import { NotificationPreferences, CityTimeZone, TrackerMode } from '../types';
 import { WORLD_CITIES } from '../data/timezones';
-import { getNext1111ForCity, findUtcForTzLocalTime, getTzParts } from './timeEngine';
+import { getNextTargetForCity, findUtcForTzLocalTime, getTzParts, TARGET_MOMENTS } from './timeEngine';
 
 const STORAGE_KEY_PREFS = '1111_notification_prefs';
 
@@ -10,12 +10,24 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPreferences = {
   scope: 'worldwide',
   notifyMinutesBefore: 0,
   favoriteCityIds: ['vancouver', 'tokyo', 'london', 'new-york', 'delhi'],
+  enable420: true,
+  notify1111: true,
+  notify420: true,
 };
 
 export function loadNotificationPrefs(): NotificationPreferences {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_PREFS);
-    if (raw) return { ...DEFAULT_NOTIFICATION_PREFS, ...JSON.parse(raw) };
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        ...DEFAULT_NOTIFICATION_PREFS,
+        ...parsed,
+        enable420: parsed.enable420 !== undefined ? parsed.enable420 : true,
+        notify1111: parsed.notify1111 !== undefined ? parsed.notify1111 : true,
+        notify420: parsed.notify420 !== undefined ? parsed.notify420 : true,
+      };
+    }
   } catch {
     // ignore
   }
@@ -34,18 +46,22 @@ export const NOTIFICATION_CHANNEL_ID = 'next1111_harmonic_chime';
 export const NOTIFICATION_SOUND = 'chime.wav';
 
 /**
- * Play a peaceful crystal chime using Web Audio API or /chime.wav audio
+ * Play a peaceful crystal chime or mellow zen chime depending on mode
  */
-export function playChimeSound(): void {
+export function playChimeSound(mode: TrackerMode = '1111'): void {
   try {
-    // Try HTML5 Audio element first if supported
+    if (mode === '420') {
+      synthesizeChillTone();
+      return;
+    }
+
+    // Try HTML5 Audio element first for 11:11 crystal chime
     if (typeof Audio !== 'undefined') {
       const audio = new Audio('/chime.wav');
       audio.volume = 0.85;
       const playPromise = audio.play();
       if (playPromise) {
         playPromise.catch(() => {
-          // Fallback to Web Audio oscillator synthesis if autoplay policy blocks file audio
           synthesizeChimeWebAudio();
         });
         return;
@@ -55,10 +71,14 @@ export function playChimeSound(): void {
     // ignore and fallback
   }
 
-  synthesizeChimeWebAudio();
+  if (mode === '420') {
+    synthesizeChillTone();
+  } else {
+    synthesizeChimeWebAudio();
+  }
 }
 
-function synthesizeChimeWebAudio(): void {
+export function synthesizeChimeWebAudio(): void {
   try {
     const AudioContextClass =
       window.AudioContext ||
@@ -86,6 +106,40 @@ function synthesizeChimeWebAudio(): void {
 
       osc.start(now + idx * 0.08);
       osc.stop(now + idx * 0.08 + 3.0);
+    });
+  } catch {
+    // ignore audio block
+  }
+}
+
+export function synthesizeChillTone(): void {
+  try {
+    const AudioContextClass =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+
+    // Mellow 432Hz relaxation chord: 216Hz, 324Hz, 432Hz, 648Hz (Warm bamboo chime vibe)
+    const freqs = [216, 324, 432, 648];
+    const now = ctx.currentTime;
+
+    freqs.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + idx * 0.1);
+
+      gain.gain.setValueAtTime(0.001, now + idx * 0.1);
+      gain.gain.exponentialRampToValueAtTime(0.15 / (idx + 1), now + idx * 0.1 + 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.1 + 3.2);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now + idx * 0.1);
+      osc.stop(now + idx * 0.1 + 3.5);
     });
   } catch {
     // ignore audio block
@@ -134,7 +188,7 @@ export async function getNotificationPermissionStatus(): Promise<'granted' | 'de
 }
 
 /**
- * Request notification permission and initialize high-priority notification channel with custom chime
+ * Request notification permission and initialize high-priority notification channel
  */
 export async function requestNotificationPermission(): Promise<boolean> {
   const { isNative, LocalNotifications } = await getCapacitorPlugins();
@@ -145,17 +199,10 @@ export async function requestNotificationPermission(): Promise<boolean> {
       const req = await LocalNotifications.requestPermissions();
       if (req.display === 'granted') {
         try {
-          // Delete old default-sound channel if it exists
-          try {
-            await LocalNotifications.deleteChannel({ id: 'next1111_alerts' });
-          } catch {
-            // ignore
-          }
-
           await LocalNotifications.createChannel({
             id: NOTIFICATION_CHANNEL_ID,
-            name: '11:11 Worldwide Alerts',
-            description: 'Notifies when 11:11 AM or PM strikes with a peaceful harmonic crystal chime',
+            name: '11:11 & 4:20 Worldwide Alerts',
+            description: 'Notifies when 11:11 or 4:20 strikes with a peaceful harmonic chime',
             importance: 5, // High priority (pops over screen)
             visibility: 1, // Public on lockscreen
             sound: NOTIFICATION_SOUND,
@@ -164,7 +211,7 @@ export async function requestNotificationPermission(): Promise<boolean> {
             lightColor: '#F59E0B',
           });
         } catch {
-          // ignore channel error on older devices
+          // ignore channel error
         }
         return true;
       }
@@ -194,26 +241,31 @@ export async function requestNotificationPermission(): Promise<boolean> {
 }
 
 /**
- * Generates future 11:11 timestamps for a given city over the next N days
+ * Generates future target timestamps for a given city over the next N days
  */
-function getFuture1111DatesForCity(city: CityTimeZone, daysAhead: number = 2): { date: Date; period: 'AM' | 'PM' }[] {
+function getFutureDatesForCity(
+  city: CityTimeZone,
+  mode: TrackerMode,
+  daysAhead: number = 2
+): { date: Date; period: 'AM' | 'PM'; mode: TrackerMode }[] {
+  const config = TARGET_MOMENTS[mode] || TARGET_MOMENTS['1111'];
   const now = new Date();
   const local = getTzParts(now, city.timeZone);
-  const results: { date: Date; period: 'AM' | 'PM' }[] = [];
+  const results: { date: Date; period: 'AM' | 'PM'; mode: TrackerMode }[] = [];
 
   for (let d = 0; d <= daysAhead; d++) {
     const targetDay = local.day + d;
     
-    // 11:11 AM
-    const amDate = findUtcForTzLocalTime(local.year, local.month, targetDay, 11, 11, city.timeZone);
+    // AM target
+    const amDate = findUtcForTzLocalTime(local.year, local.month, targetDay, config.amHour, config.targetMinute, city.timeZone);
     if (amDate.getTime() > now.getTime() + 10000) {
-      results.push({ date: amDate, period: 'AM' });
+      results.push({ date: amDate, period: 'AM', mode });
     }
 
-    // 11:11 PM (23:11)
-    const pmDate = findUtcForTzLocalTime(local.year, local.month, targetDay, 23, 11, city.timeZone);
+    // PM target
+    const pmDate = findUtcForTzLocalTime(local.year, local.month, targetDay, config.pmHour, config.targetMinute, city.timeZone);
     if (pmDate.getTime() > now.getTime() + 10000) {
-      results.push({ date: pmDate, period: 'PM' });
+      results.push({ date: pmDate, period: 'PM', mode });
     }
   }
 
@@ -227,12 +279,18 @@ export function formatOccurrenceNotification(
   cities: CityTimeZone[],
   period: 'AM' | 'PM',
   userLocalTimeFormatted: string,
-  notifyMinutesBefore: number = 0
+  notifyMinutesBefore: number = 0,
+  mode: TrackerMode = '1111'
 ): { title: string; body: string } {
+  const is420 = mode === '420';
+  const label = is420 ? '4:20' : '11:11';
+  const icon = is420 ? '🌿' : '✨';
+  const actionText = is420 ? 'Catch the vibe!' : 'Make a wish!';
+
   if (!cities || cities.length === 0) {
     return {
-      title: "✨ It's 11:11!",
-      body: `Make a wish! 11:11 has arrived (${userLocalTimeFormatted} locally).`,
+      title: `${icon} It's ${label}!`,
+      body: `${actionText} ${label} has arrived (${userLocalTimeFormatted} locally).`,
     };
   }
 
@@ -244,27 +302,27 @@ export function formatOccurrenceNotification(
 
   if (notifyMinutesBefore > 0) {
     if (count === 1) {
-      title = `⏳ 11:11 in ${primaryCity.name} in ${notifyMinutesBefore} min!`;
-      body = `11:11 ${period} is approaching in ${primaryCity.name}, ${primaryCity.country} at ${userLocalTimeFormatted} locally.`;
+      title = `⏳ ${label} in ${primaryCity.name} in ${notifyMinutesBefore} min!`;
+      body = `${label} ${period} is approaching in ${primaryCity.name}, ${primaryCity.country} at ${userLocalTimeFormatted} locally.`;
     } else if (count === 2) {
-      title = `⏳ 11:11 in ${primaryCity.name} & ${cities[1].name} in ${notifyMinutesBefore} min!`;
-      body = `11:11 is approaching simultaneously in ${primaryCity.name} and ${cities[1].name} at ${userLocalTimeFormatted} locally.`;
+      title = `⏳ ${label} in ${primaryCity.name} & ${cities[1].name} in ${notifyMinutesBefore} min!`;
+      body = `${label} is approaching simultaneously in ${primaryCity.name} and ${cities[1].name} at ${userLocalTimeFormatted} locally.`;
     } else {
-      title = `⏳ 11:11 in ${primaryCity.name}, ${cities[1].name} & ${count - 2} more in ${notifyMinutesBefore} min!`;
+      title = `⏳ ${label} in ${primaryCity.name}, ${cities[1].name} & ${count - 2} more in ${notifyMinutesBefore} min!`;
       const cityListStr = cities.slice(0, 4).map((c) => c.name).join(', ') + (count > 4 ? ` +${count - 4} more` : '');
-      body = `11:11 is approaching across ${cityListStr} at ${userLocalTimeFormatted} locally.`;
+      body = `${label} is approaching across ${cityListStr} at ${userLocalTimeFormatted} locally.`;
     }
   } else {
     if (count === 1) {
-      title = `✨ It's 11:11 ${period} in ${primaryCity.name}!`;
-      body = `Make a wish! 11:11 ${period} has arrived in ${primaryCity.name}, ${primaryCity.country} (${userLocalTimeFormatted} locally).`;
+      title = `${icon} It's ${label} ${period} in ${primaryCity.name}!`;
+      body = `${actionText} ${label} ${period} has arrived in ${primaryCity.name}, ${primaryCity.country} (${userLocalTimeFormatted} locally).`;
     } else if (count === 2) {
-      title = `✨ It's 11:11 in ${primaryCity.name} & ${cities[1].name}!`;
-      body = `Make a wish! 11:11 strikes simultaneously in ${primaryCity.name} and ${cities[1].name} (${userLocalTimeFormatted} locally).`;
+      title = `${icon} It's ${label} in ${primaryCity.name} & ${cities[1].name}!`;
+      body = `${actionText} ${label} strikes simultaneously in ${primaryCity.name} and ${cities[1].name} (${userLocalTimeFormatted} locally).`;
     } else {
-      title = `✨ It's 11:11 in ${primaryCity.name}, ${cities[1].name} & ${count - 2} other places!`;
+      title = `${icon} It's ${label} in ${primaryCity.name}, ${cities[1].name} & ${count - 2} other places!`;
       const cityListStr = cities.slice(0, 4).map((c) => c.name).join(', ') + (count > 4 ? ` +${count - 4} more` : '');
-      body = `Make a wish! 11:11 strikes across ${cityListStr} (${userLocalTimeFormatted} locally).`;
+      body = `${actionText} ${label} strikes across ${cityListStr} (${userLocalTimeFormatted} locally).`;
     }
   }
 
@@ -272,8 +330,8 @@ export function formatOccurrenceNotification(
 }
 
 /**
- * Schedules native background alarms in Android AlarmManager for all upcoming 11:11 moments.
- * Groups multiple cities occurring at the exact same minute into ONE single notification per occurrence.
+ * Schedules native background alarms in Android AlarmManager for upcoming moments.
+ * Supports both 11:11 and 4:20 occurrences.
  */
 export async function syncScheduled1111Notifications(
   prefs: NotificationPreferences,
@@ -284,7 +342,7 @@ export async function syncScheduled1111Notifications(
   if (!isNative || !LocalNotifications) return 0;
 
   try {
-    // 1. Cancel all previous pending notifications to prevent duplicate alarms
+    // 1. Cancel all previous pending notifications
     const pending = await LocalNotifications.getPending();
     if (pending.notifications && pending.notifications.length > 0) {
       await LocalNotifications.cancel({ notifications: pending.notifications });
@@ -298,8 +356,8 @@ export async function syncScheduled1111Notifications(
     try {
       await LocalNotifications.createChannel({
         id: NOTIFICATION_CHANNEL_ID,
-        name: '11:11 Worldwide Alerts',
-        description: 'Notifies when 11:11 AM or PM strikes with a peaceful harmonic crystal chime',
+        name: '11:11 & 4:20 Worldwide Alerts',
+        description: 'Notifies when 11:11 or 4:20 strikes with a peaceful harmonic chime',
         importance: 5,
         visibility: 1,
         sound: NOTIFICATION_SOUND,
@@ -324,36 +382,49 @@ export async function syncScheduled1111Notifications(
       targetCities = WORLD_CITIES;
     }
 
-    // 3. Collect and group all future candidate moments by their exact UTC minute timestamp
+    // Determine which modes to schedule based on alert channel preferences
+    const activeModes: TrackerMode[] = [];
+    if (prefs.notify1111 !== false) activeModes.push('1111');
+    if (prefs.notify420 !== false) activeModes.push('420');
+    if (activeModes.length === 0) activeModes.push('1111');
+
+    // 3. Collect and group all future candidate moments
     const now = Date.now();
     const minutesOffsetMs = (prefs.notifyMinutesBefore || 0) * 60 * 1000;
-    const slotMap = new Map<number, { cities: CityTimeZone[]; period: 'AM' | 'PM'; targetTimeMs: number }>();
+    const slotMap = new Map<string, { cities: CityTimeZone[]; period: 'AM' | 'PM'; targetTimeMs: number; mode: TrackerMode }>();
 
-    for (const city of targetCities) {
-      const futureDates = getFuture1111DatesForCity(city, prefs.scope === 'local_only' ? 7 : 2);
-      for (const item of futureDates) {
-        const targetTimeMs = item.date.getTime();
-        const triggerTimeMs = targetTimeMs - minutesOffsetMs;
-        if (triggerTimeMs <= now + 5000) continue; // must be in future
+    for (const mode of activeModes) {
+      for (const city of targetCities) {
+        const futureDates = getFutureDatesForCity(city, mode, prefs.scope === 'local_only' ? 7 : 2);
+        for (const item of futureDates) {
+          const targetTimeMs = item.date.getTime();
+          const triggerTimeMs = targetTimeMs - minutesOffsetMs;
+          if (triggerTimeMs <= now + 5000) continue; // must be in future
 
-        const bucketKey = Math.floor(triggerTimeMs / 60000) * 60000;
-        const existing = slotMap.get(bucketKey);
-        if (existing) {
-          if (!existing.cities.some((c) => c.id === city.id)) {
-            existing.cities.push(city);
+          const bucketKey = `${mode}-${Math.floor(triggerTimeMs / 60000) * 60000}`;
+          const existing = slotMap.get(bucketKey);
+          if (existing) {
+            if (!existing.cities.some((c) => c.id === city.id)) {
+              existing.cities.push(city);
+            }
+          } else {
+            slotMap.set(bucketKey, {
+              cities: [city],
+              period: item.period,
+              targetTimeMs,
+              mode,
+            });
           }
-        } else {
-          slotMap.set(bucketKey, {
-            cities: [city],
-            period: item.period,
-            targetTimeMs,
-          });
         }
       }
     }
 
     // 4. Sort distinct chronological occurrence slots
-    const sortedSlots = Array.from(slotMap.entries()).sort((a, b) => a[0] - b[0]);
+    const sortedSlots = Array.from(slotMap.entries()).sort((a, b) => {
+      const timeA = parseInt(a[0].split('-')[1], 10);
+      const timeB = parseInt(b[0].split('-')[1], 10);
+      return timeA - timeB;
+    });
 
     const notificationList: Array<{
       id: number;
@@ -368,7 +439,8 @@ export async function syncScheduled1111Notifications(
 
     let counter = 1;
 
-    for (const [triggerBucketMs, slotData] of sortedSlots) {
+    for (const [key, slotData] of sortedSlots) {
+      const triggerBucketMs = parseInt(key.split('-')[1], 10);
       const userFormatter = new Intl.DateTimeFormat('en-US', {
         timeZone: userTimeZone,
         hour: 'numeric',
@@ -377,12 +449,12 @@ export async function syncScheduled1111Notifications(
       });
       const userTimeFormatted = userFormatter.format(new Date(slotData.targetTimeMs));
 
-      // Consolidated single notification for the entire occurrence
       const { title, body } = formatOccurrenceNotification(
         slotData.cities,
         slotData.period,
         userTimeFormatted,
-        prefs.notifyMinutesBefore
+        prefs.notifyMinutesBefore,
+        slotData.mode
       );
 
       const notifId = (counter++ % 2000000000) + 1000;
@@ -402,10 +474,11 @@ export async function syncScheduled1111Notifications(
           cityIds: slotData.cities.map((c) => c.id),
           count: slotData.cities.length,
           period: slotData.period,
+          mode: slotData.mode,
         },
       });
 
-      if (notificationList.length >= 45) break; // stay within Android Alarm safe thresholds
+      if (notificationList.length >= 45) break;
     }
 
     if (notificationList.length > 0) {
@@ -420,15 +493,16 @@ export async function syncScheduled1111Notifications(
 }
 
 /**
- * Send an immediate push notification for an occurrence (accepts single city or group of simultaneous cities)
+ * Send an immediate push notification for an occurrence
  */
 export async function send1111Notification(
   cityOrCities: CityTimeZone | CityTimeZone[],
   period: 'AM' | 'PM',
-  userLocalTimeFormatted: string
+  userLocalTimeFormatted: string,
+  mode: TrackerMode = '1111'
 ): Promise<void> {
   const cities = Array.isArray(cityOrCities) ? cityOrCities : [cityOrCities];
-  const { title, body } = formatOccurrenceNotification(cities, period, userLocalTimeFormatted);
+  const { title, body } = formatOccurrenceNotification(cities, period, userLocalTimeFormatted, 0, mode);
 
   const { isNative, LocalNotifications } = await getCapacitorPlugins();
 
@@ -449,6 +523,7 @@ export async function send1111Notification(
             extra: {
               cityIds: cities.map((c) => c.id),
               period,
+              mode,
             },
           },
         ],
@@ -464,11 +539,10 @@ export async function send1111Notification(
     try {
       new Notification(title, {
         body,
-        tag: `1111-slot-${Date.now()}`,
+        tag: `${mode}-slot-${Date.now()}`,
         icon: '/icon.svg',
       });
-      // Play harmonic crystal chime for web user
-      playChimeSound();
+      playChimeSound(mode);
     } catch {
       // ignore
     }
