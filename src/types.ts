@@ -39,9 +39,12 @@ export interface Grouped1111Slot {
   localPeriodFormatted: string; // e.g. "11:11 AM local time" or "4:20 PM local time"
   clockNowFormatted: string;
   utcTargetFormatted: string; // e.g. "at 20:11:00 UTC"
-  approxMinutesText: string; // e.g. "≈ 9 minutes from now"
+  approxMinutesText: string; // e.g. "≈ 9 minutes from now" or "8 minutes ago"
   isCurrentActive: boolean;
   mode: TrackerMode;
+  isPast?: boolean;
+  elapsedMs?: number;
+  slotRelativeIndex?: number;
 }
 
 export type GroupedMomentSlot = Grouped1111Slot;

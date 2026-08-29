@@ -133,6 +133,7 @@ export default function App() {
     primary,
     activeNow,
     groupedUpcoming,
+    pastSlots,
     upcomingTimeline,
     userLocalNext,
   } = getNextTargetWorldwide(WORLD_CITIES, trackerMode, currentTime, userTimeZone);
@@ -362,13 +363,15 @@ export default function App() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-6 md:py-8 space-y-6 md:space-y-8">
-        {/* Primary Hero Focus: Next Target Moment in the world (with grouped simultaneous cities) */}
+        {/* Primary Hero Focus: Next Target Moment in the world (with swipeable past & future timeline carousel) */}
         <Next1111Hero
           slot={primarySlot}
           activeNow={activeNow}
           userTimeZone={userTimeZone}
           onOpenWishModal={handleOpenWishModalForCity}
           mode={trackerMode}
+          pastSlots={pastSlots}
+          upcomingSlots={groupedUpcoming}
         />
 
         {/* 2-Column Responsive Row: User Local (Home City), Queued Wishes & World Map Progression */}

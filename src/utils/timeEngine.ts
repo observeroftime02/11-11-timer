@@ -153,6 +153,76 @@ export function getGmtOffsetString(date: Date, timeZone: string): string {
 }
 
 /**
+ * Calculates the most recent past target event (either 11:11 or 4:20, AM or PM) for a specific city.
+ */
+export function getPastTargetForCity(
+  city: CityTimeZone,
+  mode: TrackerMode = '1111',
+  now: Date = new Date(),
+  userTimeZone: string = 'America/Vancouver'
+): Next1111Event {
+  const config = TARGET_MOMENTS[mode] || TARGET_MOMENTS['1111'];
+  const local = getTzParts(now, city.timeZone);
+
+  const isAmNow = local.hour === config.amHour && local.minute === config.targetMinute;
+  const isPmNow = local.hour === config.pmHour && local.minute === config.targetMinute;
+  const isCurrentActive = isAmNow || isPmNow;
+
+  // Potential past local targets:
+  const candidates: { hour: number; dayOffset: number; period: 'AM' | 'PM' }[] = [
+    { hour: config.pmHour, dayOffset: 0, period: 'PM' },
+    { hour: config.amHour, dayOffset: 0, period: 'AM' },
+    { hour: config.pmHour, dayOffset: -1, period: 'PM' },
+    { hour: config.amHour, dayOffset: -1, period: 'AM' },
+    { hour: config.pmHour, dayOffset: -2, period: 'PM' },
+  ];
+
+  let lastTargetDate: Date | null = null;
+  let lastPeriod: 'AM' | 'PM' = 'AM';
+  let minElapsed = Infinity;
+  const nowMs = now.getTime();
+
+  for (const cand of candidates) {
+    const targetLocalDay = local.day + cand.dayOffset;
+    const targetDate = findUtcForTzLocalTime(local.year, local.month, targetLocalDay, cand.hour, config.targetMinute, city.timeZone);
+    const elapsed = nowMs - targetDate.getTime();
+
+    if (elapsed >= 0 && elapsed < minElapsed) {
+      minElapsed = elapsed;
+      lastTargetDate = targetDate;
+      lastPeriod = cand.period;
+    }
+  }
+
+  if (!lastTargetDate) {
+    lastTargetDate = findUtcForTzLocalTime(local.year, local.month, local.day - 1, config.pmHour, config.targetMinute, city.timeZone);
+    lastPeriod = 'PM';
+    minElapsed = Math.max(0, nowMs - lastTargetDate.getTime());
+  }
+
+  const userFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: userTimeZone,
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZoneName: 'short',
+  });
+
+  return {
+    city,
+    period: lastPeriod,
+    targetDate: lastTargetDate,
+    remainingMs: -minElapsed,
+    localTimeFormatted: `${config.label} ${lastPeriod}`,
+    userTimeFormatted: userFormatter.format(lastTargetDate),
+    isCurrentActive,
+    mode,
+  };
+}
+
+/**
  * Calculates the next target event (either 11:11 or 4:20, AM or PM) for a specific city.
  */
 export function getNextTargetForCity(
@@ -258,6 +328,7 @@ export function getNextTargetWorldwide(
   primary: Next1111Event;
   activeNow: CityTimeZone[];
   groupedUpcoming: Grouped1111Slot[];
+  pastSlots: Grouped1111Slot[];
   upcomingTimeline: Next1111Event[];
   userLocalNext: Next1111Event;
   mode: TrackerMode;
@@ -397,6 +468,67 @@ export function getNextTargetWorldwide(
   };
   const userLocalNext = getNextTargetForCity(userCity, mode, now, userTimeZone);
 
+  // Past events calculation across all cities
+  const pastEvents = cities.map((c) => getPastTargetForCity(c, mode, now, userTimeZone));
+  const pastGroupMap = new Map<number, Next1111Event[]>();
+  for (const ev of pastEvents) {
+    const bucketKey = Math.floor(ev.targetDate.getTime() / 60000) * 60000;
+    const existing = pastGroupMap.get(bucketKey) || [];
+    existing.push(ev);
+    pastGroupMap.set(bucketKey, existing);
+  }
+
+  const pastSlots: Grouped1111Slot[] = Array.from(pastGroupMap.entries())
+    .map(([bucketTime, evList]) => {
+      const targetDate = new Date(bucketTime);
+      const elapsedMs = Math.max(0, now.getTime() - targetDate.getTime());
+      const primaryEv = evList[0];
+      const primaryCity = primaryEv.city;
+      const cityNames = Array.from(new Set(evList.map((e) => e.city.name)));
+      const isCurrentActive = evList.some((e) => e.isCurrentActive);
+      const gmtOffsetFormatted = getGmtOffsetString(now, primaryCity.timeZone);
+      const clockNowFormatted = formatCurrentTzTime(now, primaryCity.timeZone);
+
+      const targetUtcHours = targetDate.getUTCHours().toString().padStart(2, '0');
+      const targetUtcMins = targetDate.getUTCMinutes().toString().padStart(2, '0');
+      const targetUtcSecs = targetDate.getUTCSeconds().toString().padStart(2, '0');
+      const utcTargetFormatted = `at ${targetUtcHours}:${targetUtcMins}:${targetUtcSecs} UTC`;
+
+      const approxMinutes = Math.round(elapsedMs / 60000);
+      const approxMinutesText =
+        approxMinutes <= 1
+          ? 'less than a minute ago'
+          : `≈ ${approxMinutes} minutes ago`;
+
+      const allAm = evList.every((e) => e.period === 'AM');
+      const allPm = evList.every((e) => e.period === 'PM');
+      const localPeriodFormatted = allAm
+        ? `${config.label} AM local time`
+        : allPm
+        ? `${config.label} PM local time`
+        : `${config.label} AM / PM local time`;
+
+      return {
+        id: `past-slot-${bucketTime}`,
+        targetDate,
+        remainingMs: -elapsedMs,
+        elapsedMs,
+        cities: evList,
+        cityNames,
+        primaryCity,
+        primaryTz: primaryCity.timeZone,
+        gmtOffsetFormatted,
+        localPeriodFormatted,
+        clockNowFormatted,
+        utcTargetFormatted,
+        approxMinutesText,
+        isCurrentActive,
+        mode,
+        isPast: true,
+      };
+    })
+    .sort((a, b) => (a.elapsedMs ?? 0) - (b.elapsedMs ?? 0));
+
   const sortedUpcoming = [...events].sort((a, b) => a.remainingMs - b.remainingMs);
 
   return {
@@ -404,6 +536,7 @@ export function getNextTargetWorldwide(
     primary,
     activeNow,
     groupedUpcoming: groupedSlots,
+    pastSlots,
     upcomingTimeline: sortedUpcoming,
     userLocalNext,
     mode,
@@ -463,6 +596,24 @@ export function formatCountdownHuman(ms: number): string {
     return `${h} h ${minutes} min ${seconds} s`;
   }
   return `${m} min ${seconds} s`;
+}
+
+/**
+ * Human readable elapsed string like "8 min 49 s ago" or "1 h 08 min ago"
+ */
+export function formatElapsedHuman(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours} h ${minutes.toString().padStart(2, '0')} min ago`;
+  }
+  if (minutes > 0) {
+    return `${minutes} min ${seconds.toString().padStart(2, '0')} s ago`;
+  }
+  return `${seconds} s ago`;
 }
 
 /**
