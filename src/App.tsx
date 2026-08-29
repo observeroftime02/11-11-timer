@@ -17,6 +17,7 @@ import {
   getNextTargetForCity,
   formatCurrentTzTime,
   formatCountdownHuman,
+  getTzParts,
 } from './utils/timeEngine';
 import {
   loadNotificationPrefs,
@@ -25,6 +26,8 @@ import {
   synthesizeChillTone,
   send1111Notification,
   syncScheduled1111Notifications,
+  isSlotAlreadyNotified,
+  markSlotNotified,
 } from './utils/notifications';
 import { CityTimeZone, NotificationPreferences, UserWish, TrackerMode } from './types';
 
@@ -220,42 +223,58 @@ export default function App() {
   useEffect(() => {
     if (!notificationPrefs.enabled) return;
 
-    // Check if the current mode is enabled for alerts
-    if (trackerMode === '1111' && notificationPrefs.notify1111 === false) return;
-    if (trackerMode === '420' && notificationPrefs.notify420 === false) return;
+    const isNative = typeof window !== 'undefined' && Boolean((window as any)?.Capacitor?.isNativePlatform?.());
 
-    const currentMinuteKey = `${trackerMode}-${new Date().getUTCHours()}:${new Date().getUTCMinutes()}`;
-    if (lastNotifiedMinuteRef.current === currentMinuteKey) return;
+    // Determine which modes are enabled for alerts
+    const modesToCheck: TrackerMode[] = [];
+    if (notificationPrefs.notify1111 !== false) modesToCheck.push('1111');
+    if (notificationPrefs.enable420 && notificationPrefs.notify420 !== false) modesToCheck.push('420');
 
-    if (activeNow.length > 0) {
-      const matchingActiveCities = activeNow.filter((city) => {
-        if (notificationPrefs.scope === 'worldwide') return true;
-        if (notificationPrefs.scope === 'local_only') {
-          return city.timeZone === userTimeZone;
-        }
-        if (notificationPrefs.scope === 'favorites') {
-          return favoriteCityIds.includes(city.id);
-        }
-        return false;
-      });
+    for (const mode of modesToCheck) {
+      const modeData = getNextTargetWorldwide(WORLD_CITIES, mode, currentTime, userTimeZone);
+      const activeCities = modeData.activeNow;
 
-      if (matchingActiveCities.length > 0) {
-        lastNotifiedMinuteRef.current = currentMinuteKey;
-        const userTimeStr = formatCurrentTzTime(currentTime, userTimeZone);
+      if (activeCities.length > 0) {
+        const matchingCities = activeCities.filter((city) => {
+          if (notificationPrefs.scope === 'worldwide') return true;
+          if (notificationPrefs.scope === 'local_only') {
+            return city.timeZone === userTimeZone;
+          }
+          if (notificationPrefs.scope === 'favorites') {
+            return favoriteCityIds.includes(city.id);
+          }
+          return false;
+        });
 
-        if (notificationPrefs.soundEnabled) {
-          if (trackerMode === '420') {
-            synthesizeChillTone();
-          } else {
-            playChimeSound();
+        if (matchingCities.length > 0) {
+          const minuteSlotKey = `${mode}-${Math.floor(currentTime.getTime() / 60000)}`;
+
+          if (!isSlotAlreadyNotified(minuteSlotKey)) {
+            markSlotNotified(minuteSlotKey);
+
+            // Determine accurate AM or PM based on the primary active city's local time
+            const localParts = getTzParts(currentTime, matchingCities[0].timeZone);
+            const period: 'AM' | 'PM' = localParts.hour >= 12 ? 'PM' : 'AM';
+            const userTimeStr = formatCurrentTzTime(currentTime, userTimeZone);
+
+            if (isNative) {
+              // On Native Android, AlarmManager delivers background notifications.
+              // If the app is open in foreground, play the harmonic chime sound once.
+              if (notificationPrefs.soundEnabled) {
+                playChimeSound(mode);
+              }
+            } else {
+              // On Web, send exactly 1 consolidated notification and play audio tone once
+              send1111Notification(matchingCities, period, userTimeStr, mode, {
+                playSound: notificationPrefs.soundEnabled,
+                dedupeKey: minuteSlotKey,
+              });
+            }
           }
         }
-
-        // Send a single combined notification for the occurrence
-        send1111Notification(matchingActiveCities, 'AM', userTimeStr, trackerMode);
       }
     }
-  }, [activeNow, notificationPrefs, userTimeZone, favoriteCityIds, currentTime, trackerMode]);
+  }, [notificationPrefs, favoriteCityIds, userTimeZone, currentTime]);
 
   const handleOpenWishModalForCity = (cityName?: string) => {
     setWishCityContext(cityName || primary.city.name);

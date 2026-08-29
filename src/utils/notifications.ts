@@ -257,6 +257,67 @@ export async function requestNotificationPermission(): Promise<boolean> {
   return true;
 }
 
+// Track notified slots to ensure each 11:11 or 4:20 event is notified exactly once
+const NOTIFIED_SLOTS_KEY = '1111_notified_event_slots';
+const notifiedSlotsInMemory = new Set<string>();
+
+/**
+ * Checks if a specific minute event slot has already been notified.
+ */
+export function isSlotAlreadyNotified(slotKey: string): boolean {
+  if (notifiedSlotsInMemory.has(slotKey)) return true;
+  try {
+    const raw = sessionStorage.getItem(NOTIFIED_SLOTS_KEY);
+    if (raw) {
+      const arr: string[] = JSON.parse(raw);
+      if (arr.includes(slotKey)) {
+        notifiedSlotsInMemory.add(slotKey);
+        return true;
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return false;
+}
+
+/**
+ * Marks a specific minute event slot as notified to prevent duplicate dispatches.
+ */
+export function markSlotNotified(slotKey: string): void {
+  notifiedSlotsInMemory.add(slotKey);
+  try {
+    let arr: string[] = [];
+    const raw = sessionStorage.getItem(NOTIFIED_SLOTS_KEY);
+    if (raw) {
+      arr = JSON.parse(raw);
+    }
+    if (!arr.includes(slotKey)) {
+      arr.push(slotKey);
+      // Keep only the most recent 100 slots to avoid unbounded storage growth
+      if (arr.length > 100) {
+        arr = arr.slice(arr.length - 100);
+      }
+      sessionStorage.setItem(NOTIFIED_SLOTS_KEY, JSON.stringify(arr));
+    }
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Generates a deterministic, positive 31-bit integer ID for a notification.
+ * Using a deterministic ID ensures Android AlarmManager updates the exact same alarm
+ * rather than creating duplicate stacked alarms for the same time slot.
+ */
+export function generateDeterministicNotificationId(triggerBucketMs: number, mode: TrackerMode): number {
+  const minuteIndex = Math.floor(triggerBucketMs / 60000);
+  const modeModifier = mode === '420' ? 4200000 : 1111000;
+  // Calculate deterministic hash within positive 31-bit integer range (1000 - 2,000,000,000)
+  const hash = Math.abs((minuteIndex * 31 + modeModifier) % 1999999000);
+  return hash + 1000;
+}
+
 /**
  * Generates future target timestamps for a given city over the next N days
  */
@@ -454,8 +515,6 @@ export async function syncScheduled1111Notifications(
       extra: any;
     }> = [];
 
-    let counter = 1;
-
     for (const [key, slotData] of sortedSlots) {
       const triggerBucketMs = parseInt(key.split('-')[1], 10);
       const userFormatter = new Intl.DateTimeFormat('en-US', {
@@ -474,7 +533,8 @@ export async function syncScheduled1111Notifications(
         slotData.mode
       );
 
-      const notifId = (counter++ % 2000000000) + 1000;
+      // Use deterministic ID based on timestamp and mode to avoid duplicate/stacked alarms
+      const notifId = generateDeterministicNotificationId(triggerBucketMs, slotData.mode);
       const isSlot420 = slotData.mode === '420';
       const slotChannelId = isSlot420 ? NOTIFICATION_CHANNEL_420_ID : NOTIFICATION_CHANNEL_1111_ID;
       const slotSound = isSlot420 ? NOTIFICATION_SOUND_420 : NOTIFICATION_SOUND;
@@ -512,14 +572,21 @@ export async function syncScheduled1111Notifications(
   }
 }
 
+export interface SendNotificationOptions {
+  playSound?: boolean;
+  dedupeKey?: string;
+  isTest?: boolean;
+}
+
 /**
- * Send an immediate push notification for an occurrence
+ * Send a notification for an occurrence (with built-in deduplication and audio control)
  */
 export async function send1111Notification(
   cityOrCities: CityTimeZone | CityTimeZone[],
   period: 'AM' | 'PM',
   userLocalTimeFormatted: string,
-  mode: TrackerMode = '1111'
+  mode: TrackerMode = '1111',
+  options?: SendNotificationOptions
 ): Promise<void> {
   const cities = Array.isArray(cityOrCities) ? cityOrCities : [cityOrCities];
   const { title, body } = formatOccurrenceNotification(cities, period, userLocalTimeFormatted, 0, mode);
@@ -529,16 +596,22 @@ export async function send1111Notification(
   const isMode420 = mode === '420';
   const targetChannelId = isMode420 ? NOTIFICATION_CHANNEL_420_ID : NOTIFICATION_CHANNEL_1111_ID;
   const targetSound = isMode420 ? NOTIFICATION_SOUND_420 : NOTIFICATION_SOUND;
+  const shouldPlaySound = options?.playSound !== false;
 
   // 1. Native Android Notification
   if (isNative && LocalNotifications) {
     try {
+      // Deterministic notification ID or test ID
+      const notifId = options?.isTest
+        ? 999999
+        : generateDeterministicNotificationId(Date.now(), mode);
+
       await LocalNotifications.schedule({
         notifications: [
           {
             title,
             body,
-            id: Math.floor(Math.random() * 1000000) + 1,
+            id: notifId,
             channelId: targetChannelId,
             schedule: { at: new Date(Date.now() + 100), allowWhileIdle: true },
             sound: targetSound,
@@ -558,17 +631,23 @@ export async function send1111Notification(
     }
   }
 
-  // 2. Web Notification
+  // 2. Web Notification (with deterministic tag to auto-deduplicate duplicate tabs/calls)
+  const dedupeTag = options?.dedupeKey || `${mode}-moment-${Math.floor(Date.now() / 60000)}`;
+
   if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
     try {
       new Notification(title, {
         body,
-        tag: `${mode}-slot-${Date.now()}`,
+        tag: dedupeTag,
         icon: '/icon.svg',
       });
-      playChimeSound(mode);
     } catch {
       // ignore
     }
+  }
+
+  // Play audio tone once if requested
+  if (shouldPlaySound) {
+    playChimeSound(mode);
   }
 }

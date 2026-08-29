@@ -60,15 +60,12 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
   };
 
   const handleTestNotification = async () => {
-    if (prefs.soundEnabled) {
-      if (activeMode === '420') {
-        synthesizeChillTone();
-      } else {
-        playChimeSound();
-      }
-    }
     const modeToUse: TrackerMode = activeMode === '420' ? '420' : '1111';
-    await send1111Notification(currentNextCity, 'AM', '3:11 PM', modeToUse);
+    await send1111Notification(currentNextCity, 'AM', '3:11 PM', modeToUse, {
+      playSound: prefs.soundEnabled,
+      isTest: true,
+      dedupeKey: `test-${modeToUse}-${Date.now()}`,
+    });
     setTestSent(true);
     setTimeout(() => setTestSent(false), 3500);
   };
