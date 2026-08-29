@@ -259,10 +259,10 @@ export default function App() {
     saveNotificationPrefs(newPrefs);
   };
 
-  // Synchronize background Android AlarmManager alarms whenever preferences change
+  // Synchronize background Android AlarmManager alarms whenever preferences or wishes change
   useEffect(() => {
-    syncScheduled1111Notifications(notificationPrefs, favoriteCityIds, userTimeZone);
-  }, [notificationPrefs, favoriteCityIds, userTimeZone]);
+    syncScheduled1111Notifications(notificationPrefs, favoriteCityIds, userTimeZone, wishes);
+  }, [notificationPrefs, favoriteCityIds, userTimeZone, wishes]);
 
   // Check and dispatch automatic notifications (strictly 1 notification per occurrence)
   useEffect(() => {
@@ -313,13 +313,13 @@ export default function App() {
               send1111Notification(matchingCities, period, userTimeStr, mode, {
                 playSound: notificationPrefs.soundEnabled,
                 dedupeKey: minuteSlotKey,
-              });
+              }, wishes);
             }
           }
         }
       }
     }
-  }, [notificationPrefs, favoriteCityIds, userTimeZone, currentTime]);
+  }, [notificationPrefs, favoriteCityIds, userTimeZone, currentTime, wishes]);
 
   const handleOpenWishModalForCity = (cityName?: string) => {
     setWishCityContext(cityName || primary.city.name);

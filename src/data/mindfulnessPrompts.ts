@@ -377,6 +377,12 @@ export const MINDFULNESS_PROMPTS: MindfulnessPrompt[] = [
     category: 'reflection',
     modeBias: '1111',
   },
+  {
+    id: 'p-58',
+    text: 'This one is for you, write whatever is on your mind right now',
+    category: 'reflection',
+    modeBias: '1111',
+  },
 ];
 
 /**

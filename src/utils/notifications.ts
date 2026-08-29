@@ -1,4 +1,4 @@
-import { NotificationPreferences, CityTimeZone, TrackerMode } from '../types';
+import { NotificationPreferences, CityTimeZone, TrackerMode, UserWish } from '../types';
 import { WORLD_CITIES } from '../data/timezones';
 import { getNextTargetForCity, findUtcForTzLocalTime, getTzParts, TARGET_MOMENTS, getCachedFormatter } from './timeEngine';
 
@@ -358,7 +358,8 @@ export function formatOccurrenceNotification(
   period: 'AM' | 'PM',
   userLocalTimeFormatted: string,
   notifyMinutesBefore: number = 0,
-  mode: TrackerMode = '1111'
+  mode: TrackerMode = '1111',
+  wishes: UserWish[] = []
 ): { title: string; body: string } {
   const is420 = mode === '420';
   const label = is420 ? '4:20' : '11:11';
@@ -404,6 +405,19 @@ export function formatOccurrenceNotification(
     }
   }
 
+  // Find if there is a matching wish for any of these cities and this period/mode
+  const matchedWish = wishes.find(
+    (w) =>
+      (w.mode || '1111') === mode &&
+      w.period === period &&
+      cities.some((c) => c.name.toLowerCase() === w.cityName.toLowerCase())
+  );
+
+  if (matchedWish && matchedWish.wishText) {
+    const intentionLabel = is420 ? 'Your intention' : 'Your wish';
+    body += `\n💭 ${intentionLabel}: "${matchedWish.wishText}"`;
+  }
+
   return { title, body };
 }
 
@@ -414,7 +428,8 @@ export function formatOccurrenceNotification(
 export async function syncScheduled1111Notifications(
   prefs: NotificationPreferences,
   favoriteCityIds: string[] = ['vancouver', 'tokyo', 'london', 'new-york', 'delhi'],
-  userTimeZone: string = 'America/Vancouver'
+  userTimeZone: string = 'America/Vancouver',
+  wishes: UserWish[] = []
 ): Promise<number> {
   const { isNative, LocalNotifications } = await getCapacitorPlugins();
   if (!isNative || !LocalNotifications) return 0;
@@ -541,7 +556,8 @@ export async function syncScheduled1111Notifications(
         slotData.period,
         userTimeFormatted,
         prefs.notifyMinutesBefore,
-        slotData.mode
+        slotData.mode,
+        wishes
       );
 
       // Use deterministic ID based on timestamp and mode to avoid duplicate/stacked alarms
@@ -597,10 +613,11 @@ export async function send1111Notification(
   period: 'AM' | 'PM',
   userLocalTimeFormatted: string,
   mode: TrackerMode = '1111',
-  options?: SendNotificationOptions
+  options?: SendNotificationOptions,
+  wishes: UserWish[] = []
 ): Promise<void> {
   const cities = Array.isArray(cityOrCities) ? cityOrCities : [cityOrCities];
-  const { title, body } = formatOccurrenceNotification(cities, period, userLocalTimeFormatted, 0, mode);
+  const { title, body } = formatOccurrenceNotification(cities, period, userLocalTimeFormatted, 0, mode, wishes);
 
   const { isNative, LocalNotifications } = await getCapacitorPlugins();
 
