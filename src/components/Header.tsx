@@ -9,6 +9,7 @@ interface HeaderProps {
   onOpenNotifications: () => void;
   onOpenWishModal: () => void;
   onOpenWorldDirectory: () => void;
+  onOpenIconStudio?: () => void;
   isWishActiveNow: boolean;
   activeCount: number;
   mode?: TrackerMode;
@@ -22,6 +23,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenNotifications,
   onOpenWishModal,
   onOpenWorldDirectory,
+  onOpenIconStudio,
   isWishActiveNow,
   activeCount,
   mode,
@@ -145,6 +147,20 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             )}
           </button>
+
+          {/* App Icon & Graphic Studio Button */}
+          {onOpenIconStudio && (
+            <button
+              id="btn-header-icon-studio"
+              onClick={onOpenIconStudio}
+              className="flex items-center justify-center gap-1 sm:gap-1.5 p-1.5 sm:px-3 sm:py-2 rounded-xl text-xs font-semibold bg-neutral-900 hover:bg-neutral-850 text-neutral-200 border border-neutral-800 hover:border-neutral-700 transition-all cursor-pointer shadow-sm hover:text-white"
+              title="Download Play Store 512x512 icon, 1024x500 feature graphic, and vector assets"
+              aria-label="App icons and store assets studio"
+            >
+              <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+              <span className="hidden lg:inline">Store Assets</span>
+            </button>
+          )}
 
           {/* Settings & Notifications Modal Button */}
           <button

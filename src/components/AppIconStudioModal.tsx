@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, Sparkles, Check, Image as ImageIcon, Layers } from 'lucide-react';
+import { Download, Sparkles, Check, Image as ImageIcon, Layers, Layout } from 'lucide-react';
 
 interface IconOption {
   id: string;
@@ -59,7 +59,7 @@ export const AppIconStudioModal: React.FC<AppIconStudioModalProps> = ({ isOpen, 
   const selectedIcon = ICONS.find((i) => i.id === selectedId) || ICONS[0];
 
   const handleDownloadPng = async (icon: IconOption, size = 512) => {
-    setDownloadingFormat(`png-${icon.id}`);
+    setDownloadingFormat(`png-${icon.id}-${size}`);
     try {
       const response = await fetch(icon.svgPath);
       const svgText = await response.text();
@@ -93,6 +93,95 @@ export const AppIconStudioModal: React.FC<AppIconStudioModalProps> = ({ isOpen, 
     }
   };
 
+  const handleDownloadFeatureGraphic = async () => {
+    setDownloadingFormat('feature-graphic');
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1024;
+      canvas.height = 500;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Dark obsidian background gradient
+      const bgGrad = ctx.createLinearGradient(0, 0, 1024, 500);
+      bgGrad.addColorStop(0, '#0a0a0c');
+      bgGrad.addColorStop(0.5, '#121218');
+      bgGrad.addColorStop(1, '#050507');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, 1024, 500);
+
+      // Subtle celestial glow behind icon
+      const glowGrad = ctx.createRadialGradient(260, 250, 20, 260, 250, 240);
+      glowGrad.addColorStop(0, 'rgba(245, 158, 11, 0.25)');
+      glowGrad.addColorStop(0.5, 'rgba(245, 158, 11, 0.06)');
+      glowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = glowGrad;
+      ctx.beginPath();
+      ctx.arc(260, 250, 240, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Draw subtle orbital rings on the right
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(750, 250, 180, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(750, 250, 230, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Draw loaded icon on left side (260px square)
+      const response = await fetch(selectedIcon.svgPath);
+      const svgText = await response.text();
+      const img = new Image();
+      const svgBlob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
+      const blobURL = URL.createObjectURL(svgBlob);
+
+      img.onload = () => {
+        // Draw icon
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.6)';
+        ctx.shadowBlur = 30;
+        ctx.shadowOffsetY = 15;
+        ctx.drawImage(img, 140, 130, 240, 240);
+        ctx.restore();
+
+        // Right side typography
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 52px system-ui, -apple-system, sans-serif';
+        ctx.fillText('Next 11:11', 440, 205);
+
+        // Subtitle pill / badge
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = '600 22px system-ui, -apple-system, sans-serif';
+        ctx.fillText('World Clock & Mindfulness Widgets', 440, 250);
+
+        // Feature bullet tags
+        ctx.fillStyle = '#a3a3a3';
+        ctx.font = '400 17px system-ui, -apple-system, sans-serif';
+        ctx.fillText('✨ Live Global 11:11 & 4:20 Countdowns', 440, 305);
+        ctx.fillText('📱 6 Dynamic Android Home Screen Widgets', 440, 340);
+        ctx.fillText('🔔 Crystal Harmonic Chimes & Wish Journal', 440, 375);
+
+        // Export PNG
+        const pngUrl = canvas.toDataURL('image/png');
+        const downloadLink = document.createElement('a');
+        downloadLink.href = pngUrl;
+        downloadLink.download = 'next-1111-feature-graphic-1024x500.png';
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+
+        URL.revokeObjectURL(blobURL);
+        setDownloadingFormat(null);
+      };
+      img.src = blobURL;
+    } catch (err) {
+      console.error('Error generating feature graphic:', err);
+      setDownloadingFormat(null);
+    }
+  };
+
   const handleDownloadSvg = async (icon: IconOption) => {
     setDownloadingFormat(`svg-${icon.id}`);
     try {
@@ -118,7 +207,7 @@ export const AppIconStudioModal: React.FC<AppIconStudioModalProps> = ({ isOpen, 
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 p-2 rounded-xl bg-neutral-800 text-neutral-400 hover:text-white transition-colors"
+          className="absolute top-5 right-5 p-2 rounded-xl bg-neutral-800 text-neutral-400 hover:text-white transition-colors cursor-pointer"
         >
           ✕
         </button>
@@ -127,14 +216,41 @@ export const AppIconStudioModal: React.FC<AppIconStudioModalProps> = ({ isOpen, 
         <div className="space-y-1">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>App Icon Studio</span>
+            <span>App Icon & Play Store Graphics Studio</span>
           </div>
           <h2 className="text-xl md:text-2xl font-bold font-display text-white">
-            11:11 App Icons & Assets
+            11:11 Store Graphics & App Icons
           </h2>
           <p className="text-xs md:text-sm text-neutral-400">
-            Export ready-to-use 512x512 PNGs and vector SVGs for your Android APK, PWABuilder, or home screen launcher.
+            Export ready-to-upload 512x512 PNG app icons, 1024x500 feature graphics, and vector SVGs directly for Google Play Store.
           </p>
+        </div>
+
+        {/* Feature Graphic Banner Generator Card */}
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-neutral-950 via-neutral-900 to-neutral-950 border border-amber-500/30 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg shadow-amber-500/5">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+              <Layout className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="text-xs font-bold text-white flex items-center gap-2">
+                <span>Play Store Feature Graphic</span>
+                <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px]">1024 × 500 px</span>
+              </div>
+              <div className="text-xs text-neutral-400 mt-0.5">
+                Required for Google Play Store main store listing.
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={handleDownloadFeatureGraphic}
+            disabled={downloadingFormat === 'feature-graphic'}
+            className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-neutral-950 font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
+          >
+            <Download className="w-4 h-4" />
+            <span>{downloadingFormat === 'feature-graphic' ? 'Generating...' : 'Download 1024x500 Banner'}</span>
+          </button>
         </div>
 
         {/* Main Grid of 4 Icon Designs */}
@@ -182,8 +298,8 @@ export const AppIconStudioModal: React.FC<AppIconStudioModalProps> = ({ isOpen, 
                       e.stopPropagation();
                       handleDownloadPng(icon, 512);
                     }}
-                    disabled={downloadingFormat === `png-${icon.id}`}
-                    className="flex-1 px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-750 text-white text-xs font-semibold flex items-center justify-center gap-1.5 border border-neutral-700 transition-colors"
+                    disabled={downloadingFormat === `png-${icon.id}-512`}
+                    className="flex-1 px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-750 text-white text-xs font-semibold flex items-center justify-center gap-1.5 border border-neutral-700 transition-colors cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5 text-amber-400" />
                     <span>512px PNG</span>
@@ -195,7 +311,7 @@ export const AppIconStudioModal: React.FC<AppIconStudioModalProps> = ({ isOpen, 
                       handleDownloadSvg(icon);
                     }}
                     disabled={downloadingFormat === `svg-${icon.id}`}
-                    className="px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-750 text-neutral-300 hover:text-white text-xs font-semibold flex items-center justify-center gap-1.5 border border-neutral-700 transition-colors"
+                    className="px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-750 text-neutral-300 hover:text-white text-xs font-semibold flex items-center justify-center gap-1.5 border border-neutral-700 transition-colors cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5 text-neutral-400" />
                     <span>SVG</span>
@@ -213,7 +329,7 @@ export const AppIconStudioModal: React.FC<AppIconStudioModalProps> = ({ isOpen, 
               <img src={selectedIcon.svgPath} alt={selectedIcon.name} className="w-full h-full object-cover" />
             </div>
             <div>
-              <div className="text-xs text-neutral-400">Selected for APK export</div>
+              <div className="text-xs text-neutral-400">Selected for Store Icon</div>
               <div className="text-sm font-bold text-white">{selectedIcon.name}</div>
             </div>
           </div>
@@ -221,14 +337,14 @@ export const AppIconStudioModal: React.FC<AppIconStudioModalProps> = ({ isOpen, 
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
               onClick={() => handleDownloadPng(selectedIcon, 512)}
-              className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2"
+              className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-neutral-950 font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               <Download className="w-4 h-4" />
-              Download 512x512 APK Icon
+              Download 512x512 Play Store Icon
             </button>
             <button
               onClick={() => handleDownloadPng(selectedIcon, 192)}
-              className="px-3 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-750 text-neutral-200 text-xs font-semibold border border-neutral-700 transition-all flex items-center gap-1.5"
+              className="px-3 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-750 text-neutral-200 text-xs font-semibold border border-neutral-700 transition-all flex items-center gap-1.5 cursor-pointer"
               title="Download standard 192px Android icon"
             >
               192px

@@ -12,6 +12,7 @@ import { WorldDirectoryView } from './components/WorldDirectoryView';
 import { MakeAWishModal } from './components/MakeAWishModal';
 import { NotificationModal } from './components/NotificationModal';
 import { PrivacyPolicyModal } from './components/PrivacyPolicyModal';
+import { AppIconStudioModal } from './components/AppIconStudioModal';
 import { WORLD_CITIES } from './data/timezones';
 import {
   getNextTargetWorldwide,
@@ -88,6 +89,7 @@ export default function App() {
   const [isWishModalOpen, setIsWishModalOpen] = useState(false);
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
+  const [isIconStudioOpen, setIsIconStudioOpen] = useState(false);
   const [wishCityContext, setWishCityContext] = useState<string | undefined>();
 
   // Track previous notified minute to avoid duplicate alerts within the same minute
@@ -442,6 +444,7 @@ export default function App() {
         onOpenNotifications={() => setIsNotificationModalOpen(true)}
         onOpenWishModal={() => handleOpenWishModalForCity()}
         onOpenWorldDirectory={() => setCurrentView('world')}
+        onOpenIconStudio={() => setIsIconStudioOpen(true)}
         isWishActiveNow={activeNow.length > 0}
         activeCount={activeNow.length}
         mode={trackerMode}
@@ -596,6 +599,11 @@ export default function App() {
       <PrivacyPolicyModal
         isOpen={isPrivacyModalOpen}
         onClose={() => setIsPrivacyModalOpen(false)}
+      />
+
+      <AppIconStudioModal
+        isOpen={isIconStudioOpen}
+        onClose={() => setIsIconStudioOpen(false)}
       />
     </div>
   );

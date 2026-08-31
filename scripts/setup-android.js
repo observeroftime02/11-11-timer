@@ -271,14 +271,23 @@ if (fs.existsSync(manifestPath)) {
         </receiver>`;
 
   // Clean any older receiver block before replacing
-  if (manifest.includes('Next1111CompactWidgetProvider')) {
-    // replace everything from first receiver to </application>
-    const idx = manifest.indexOf('<receiver');
-    if (idx !== -1) {
-      manifest = manifest.substring(0, idx) + receiversXml + '\n    </application>';
+  const startMarker = '<!-- Next 11:11 & Next 4:20 Home Screen Widgets';
+  if (manifest.includes(startMarker)) {
+    const startIdx = manifest.indexOf(startMarker);
+    const endIdx = manifest.indexOf('</application>');
+    if (startIdx !== -1 && endIdx !== -1) {
+      manifest = manifest.substring(0, startIdx) + receiversXml.trim() + '\n    ' + manifest.substring(endIdx);
     }
-  } else {
+  } else if (!manifest.includes('Next1111CompactWidgetProvider')) {
     manifest = manifest.replace('</application>', `${receiversXml}\n    </application>`);
+  }
+
+  // Double check that </manifest> is intact
+  if (!manifest.includes('</manifest>')) {
+    if (!manifest.includes('</application>')) {
+      manifest += '\n    </application>';
+    }
+    manifest += '\n</manifest>';
   }
 
   fs.writeFileSync(manifestPath, manifest, 'utf8');
